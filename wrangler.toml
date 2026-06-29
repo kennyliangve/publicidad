@@ -2,10 +2,6 @@ name = "publicidad"
 compatibility_date = "2024-06-01"
 pages_build_output_dir = "dist"
 
-# wrangler pages deploy 时会先执行构建
-[build]
-command = "npm ci --prefix frontend && npm run build:cloudflare --prefix frontend"
-
 # Pages Functions 环境变量（/api 代理到 PHP 后端）
 [vars]
 API_ORIGIN = "https://www.vecino.com.ve/publicidad/api/index.php"
