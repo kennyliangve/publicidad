@@ -1,0 +1,15 @@
+DirectoryIndex index.php index.html
+
+RewriteEngine On
+RewriteBase /publicidad/
+
+# 已有真实文件/目录则直接访问
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# API
+RewriteRule ^api(/.*)?$ api/index.php [QSA,L]
+
+# 其余请求交给 index.php（SPA + 静态资源）
+RewriteRule ^ index.php [QSA,L]
