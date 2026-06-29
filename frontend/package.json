@@ -7,7 +7,7 @@
     "dev": "nodemon",
     "dev:vite": "vite",
     "build": "vite build",
-    "build:cloudflare": "vite build --mode cloudflare",
+    "build:cloudflare": "vite build --mode cloudflare && node scripts/verify-cloudflare-build.js",
     "preview": "vite preview"
   },
   "dependencies": {

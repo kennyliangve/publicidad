@@ -13,6 +13,13 @@ export default {
       return proxyStatic(request, env)
     }
 
+    // 兼容误用 /publicidad/ base 构建的前端静态资源
+    if (url.pathname.startsWith('/publicidad/assets/')) {
+      const fixed = new URL(request.url)
+      fixed.pathname = url.pathname.replace(/^\/publicidad/, '')
+      return env.ASSETS.fetch(new Request(fixed, request))
+    }
+
     return env.ASSETS.fetch(request)
   },
 }
