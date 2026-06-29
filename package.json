@@ -1,0 +1,14 @@
+{
+  "name": "publicidad",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "npm ci --prefix frontend && npm run build:cloudflare --prefix frontend",
+    "deploy": "npm run build && wrangler pages deploy dist --project-name=publicidad"
+  },
+  "devDependencies": {
+    "wrangler": "^4.105.0"
+  }
+}
