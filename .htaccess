@@ -3,9 +3,16 @@ DirectoryIndex api/index.php index.php index.html
 RewriteEngine On
 RewriteBase /publicidad/
 
+# 将 Authorization 头传递给 PHP（Apache/CGI 环境下常见丢失）
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
 # 禁止访问 node_modules（防止误传后被下载）
 RewriteRule ^frontend/node_modules(/|$) - [F,L]
 RewriteRule ^node_modules(/|$) - [F,L]
+
+# 对外 /media/ URL → uploads/ 物理目录（避免广告拦截器屏蔽 uploads）
+RewriteRule ^media/(.+)$ uploads/$1 [L]
 
 # 已有真实文件/目录则直接访问
 RewriteCond %{REQUEST_FILENAME} -f [OR]

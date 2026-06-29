@@ -18,6 +18,7 @@ $config = [
     ],
     'jwt_secret'  => 'publicidad_secret_key_change_in_production',
     'upload_path' => __DIR__ . '/../uploads/',
+    'logo_path'   => __DIR__ . '/../logo/',
     'cors_origin' => '*',
     'auto_migrate'  => true,   // 连接数据库时自动执行 api/migrations/ 中的新迁移
     'migrate_secret' => 'pub_migrate_2026',  // POST /api/migrate?key=xxx 手动触发
@@ -34,5 +35,6 @@ if ($config['base_path'] === '' && php_sapi_name() !== 'cli') {
 }
 
 $config['upload_url'] = rtrim($config['base_path'], '/') . '/uploads/';
+$config['logo_url'] = rtrim($config['base_path'], '/') . '/logo/';
 
 return $config;

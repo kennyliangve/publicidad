@@ -12,7 +12,8 @@
         <div class="user-info">
           <div class="username-row">
             <span class="username">{{ profile?.username }}</span>
-            <span v-if="profile?.role === 1" class="badge admin">管理员</span>
+            <span v-if="isStaffUser" class="badge staff">{{ profile?.role_label }}</span>
+            <span v-else-if="isVipUser" class="badge vip">{{ profile?.role_label }}</span>
           </div>
           <div class="contact">{{ profile?.email || profile?.phone }}</div>
           <div v-if="locationText" class="meta">
@@ -62,6 +63,10 @@
             <span class="label">账号状态</span>
             <span>{{ profile?.status_label }}</span>
           </div>
+          <div v-if="isActiveVipUser && profile?.vip_expires_at" class="profile-row">
+            <span class="label">VIP 到期</span>
+            <span>{{ formatDateTime(profile.vip_expires_at) }}</span>
+          </div>
           <div class="profile-row">
             <span class="label">最后登录</span>
             <span>{{ formatDateTime(profile?.last_login_at) }}</span>
@@ -85,16 +90,13 @@
               <option :value="2">女</option>
             </select>
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">城市</label>
-              <input v-model="form.city" class="form-input" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">区域</label>
-              <input v-model="form.district" class="form-input" />
-            </div>
-          </div>
+          <CitySelect
+            v-model:province="form.province"
+            v-model:city="form.city"
+            v-model:district="form.district"
+            :regions="regions"
+            :show-district="true"
+          />
           <div class="form-group">
             <label class="form-label">个人简介</label>
             <textarea v-model="form.bio" class="form-textarea" rows="3" maxlength="255"></textarea>
@@ -106,10 +108,24 @@
       </div>
 
       <div class="user-menu card">
-        <router-link v-if="profile?.role === 1" to="/admin/dashboard" class="menu-item admin-entry">
+        <router-link v-if="isStaffUser" to="/admin/dashboard" class="menu-item admin-entry">
           <span class="menu-label">
             <AppIcon name="wrench" :size="18" />
             管理后台
+          </span>
+          <AppIcon name="chevron-right" :size="18" class="arrow" />
+        </router-link>
+        <router-link v-if="showUpgradeEntry" to="/upgrade" class="menu-item upgrade-entry">
+          <span class="menu-label">
+            <AppIcon name="star" :size="18" />
+            升级 VIP
+          </span>
+          <AppIcon name="chevron-right" :size="18" class="arrow" />
+        </router-link>
+        <router-link v-else-if="isActiveVipUser" to="/upgrade" class="menu-item upgrade-entry renew">
+          <span class="menu-label">
+            <AppIcon name="star" :size="18" />
+            VIP 续费
           </span>
           <AppIcon name="chevron-right" :size="18" class="arrow" />
         </router-link>
@@ -153,14 +169,19 @@ import { ref, computed, inject, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { api } from '@/api'
+import { isStaff, isVip, isActiveVip, canUploadPostImages, hasEnabledVipPlans } from '@/utils/roles'
+import { useSiteStore } from '@/stores/site'
+import CitySelect from '@/components/CitySelect.vue'
 import AppIcon from '@/components/AppIcon.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
+const siteStore = useSiteStore()
 const showToast = inject('showToast')
 
 const profile = ref(null)
 const posts = ref([])
+const regions = ref([])
 const loading = ref(false)
 const editing = ref(false)
 const saving = ref(false)
@@ -168,6 +189,7 @@ const form = ref({
   username: '',
   real_name: '',
   gender: 0,
+  province: '',
   city: '',
   district: '',
   bio: '',
@@ -178,6 +200,14 @@ const locationText = computed(() => {
   if (!p) return ''
   return [p.province, p.city, p.district].filter(Boolean).join(' ')
 })
+
+const isStaffUser = computed(() => isStaff(profile.value?.role))
+const isVipUser = computed(() => isVip(profile.value?.role))
+const isActiveVipUser = computed(() => isActiveVip(profile.value))
+const showUpgradeEntry = computed(() =>
+  !canUploadPostImages(profile.value?.role, profile.value)
+    && hasEnabledVipPlans(siteStore.vipUpgrade)
+)
 
 function formatDate(dateStr) {
   if (!dateStr) return '-'
@@ -196,6 +226,7 @@ function fillForm() {
     username: p.username || '',
     real_name: p.real_name || '',
     gender: p.gender ?? 0,
+    province: p.province || '',
     city: p.city || '',
     district: p.district || '',
     bio: p.bio || '',
@@ -259,8 +290,16 @@ function logout() {
 onMounted(async () => {
   if (!userStore.isLoggedIn) return
   try {
+    await siteStore.load().catch(() => {})
+    const regionsData = await api.getRegions().catch(() => ({ regions: [] }))
+    if (regionsData?.regions?.length) {
+      regions.value = regionsData.regions
+    }
     await Promise.all([loadProfile(), loadPosts()])
   } catch (err) {
+    if (err.message?.includes('登录')) {
+      userStore.logout()
+    }
     showToast(err.message)
   }
 })
@@ -307,9 +346,14 @@ onMounted(async () => {
   border-radius: 10px;
   font-weight: 600;
 }
-.badge.admin {
+.badge.staff {
   background: var(--black);
   color: var(--primary);
+}
+.badge.vip {
+  background: linear-gradient(135deg, #f8d000 0%, #ffb800 100%);
+  color: #5c4a00;
+  border: 1px solid rgba(0, 0, 0, 0.12);
 }
 .contact { font-size: 14px; color: var(--text-muted); margin-top: 4px; }
 .meta {
@@ -380,6 +424,7 @@ onMounted(async () => {
 }
 .menu-item:hover { background: #fafafa; }
 .menu-label { display: flex; align-items: center; gap: 8px; }
+.upgrade-entry .menu-label { color: #b45309; font-weight: 600; }
 .arrow { color: var(--text-muted); }
 
 .my-posts { margin-top: 20px; }

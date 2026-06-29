@@ -31,3 +31,27 @@ function parseApiUri(): string
 
     return trim($uri, '/');
 }
+
+/** 站点对外 Origin（用于上传返回完整图片 URL） */
+function getPublicOrigin(): string
+{
+    static $origin = null;
+    if ($origin !== null) {
+        return $origin;
+    }
+
+    $config = getConfig();
+    if (!empty($config['public_origin'])) {
+        $origin = rtrim((string)$config['public_origin'], '/');
+        return $origin;
+    }
+
+    if (php_sapi_name() === 'cli' || empty($_SERVER['HTTP_HOST'])) {
+        $origin = '';
+        return $origin;
+    }
+
+    $https = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+    $origin = ($https ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'];
+    return $origin;
+}

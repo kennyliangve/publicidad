@@ -4,21 +4,30 @@
       <div class="container header-top-inner">
         <router-link to="/" class="logo">
           <span class="logo-mark">
-            <AppIcon name="home" :size="22" />
+            <img v-if="logoSrc" :src="logoSrc" :alt="siteStore.siteName" class="logo-img" />
+            <AppIcon v-else name="home" :size="22" />
           </span>
           <span class="logo-text">
-            <span class="logo-title">同城信息</span>
-            <span class="logo-sub">本地生活服务平台</span>
+            <span class="logo-title">{{ siteStore.siteName }}</span>
+            <span class="logo-sub">{{ siteStore.siteDescription }}</span>
           </span>
         </router-link>
 
-        <div class="search-wrap">
-          <div class="search-bar" @click="$router.push('/search')">
+        <form class="search-wrap" @submit.prevent="submitSearch">
+          <div class="search-bar">
             <AppIcon name="search" :size="18" class="search-icon" />
-            <span class="search-placeholder">搜索招聘、租房、二手车、家政...</span>
-            <button type="button" class="search-btn" @click.stop="$router.push('/search')">搜索</button>
+            <input
+              v-model="searchKeyword"
+              type="search"
+              class="search-input"
+              placeholder="搜索招聘、租房、二手车、家政..."
+              enterkeyhint="search"
+              autocomplete="off"
+              maxlength="100"
+            />
+            <button type="submit" class="search-btn">搜索</button>
           </div>
-        </div>
+        </form>
 
         <div class="header-actions">
           <router-link to="/publish" class="btn-publish">
@@ -34,7 +43,7 @@
           </template>
           <template v-else>
             <router-link to="/login" class="auth-link" :class="{ active: route.name === 'Login' }">登录</router-link>
-            <router-link to="/register" class="auth-btn" :class="{ active: route.name === 'Register' }">注册</router-link>
+            <router-link v-if="siteStore.allowRegister" to="/register" class="auth-btn" :class="{ active: route.name === 'Register' }">注册</router-link>
           </template>
         </div>
       </div>
@@ -44,29 +53,62 @@
     <div class="header-mobile hide-desktop">
       <div class="container header-mobile-inner">
         <router-link to="/" class="logo-mobile">
-          <AppIcon name="home" :size="22" />
-          <span>同城信息</span>
+          <img v-if="logoSrc" :src="logoSrc" :alt="siteStore.siteName" class="logo-img-mobile" />
+          <AppIcon v-else name="home" :size="22" />
+          <span>{{ siteStore.siteName }}</span>
         </router-link>
-        <button type="button" class="mobile-search-btn" @click="$router.push('/search')">
-          <AppIcon name="search" :size="22" />
-        </button>
+        <form class="mobile-search-form" @submit.prevent="submitSearch">
+          <AppIcon name="search" :size="16" class="mobile-search-icon" />
+          <input
+            v-model="searchKeyword"
+            type="search"
+            class="mobile-search-input"
+            placeholder="搜索..."
+            enterkeyhint="search"
+            autocomplete="off"
+            maxlength="100"
+          />
+        </form>
       </div>
     </div>
   </header>
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, watch, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { useSiteStore } from '@/stores/site'
+import { resolveLogoUrl } from '@/utils/asset'
 import AppIcon from '@/components/AppIcon.vue'
 
 const route = useRoute()
+const router = useRouter()
 const userStore = useUserStore()
+const siteStore = useSiteStore()
+
+const searchKeyword = ref('')
+
+const logoSrc = computed(() => resolveLogoUrl(siteStore.siteLogo))
 
 const userInitial = computed(() =>
   (userStore.user?.username?.[0] || 'U').toUpperCase()
 )
+
+watch(
+  () => route.query.q,
+  (q) => {
+    if (route.name === 'Search') {
+      searchKeyword.value = typeof q === 'string' ? q : ''
+    }
+  },
+  { immediate: true }
+)
+
+function submitSearch() {
+  const q = searchKeyword.value.trim()
+  router.push(q ? { path: '/search', query: { q } } : { path: '/search' })
+}
 </script>
 
 <style scoped>
@@ -107,6 +149,22 @@ const userInitial = computed(() =>
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: var(--white);
+}
+
+.logo-img-mobile {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  border-radius: 6px;
+  flex-shrink: 0;
 }
 
 .logo-text {
@@ -132,6 +190,7 @@ const userInitial = computed(() =>
   display: flex;
   justify-content: center;
   min-width: 0;
+  margin: 0;
 }
 
 .search-bar {
@@ -145,11 +204,10 @@ const userInitial = computed(() =>
   background: var(--white);
   border: 2px solid var(--black);
   border-radius: 24px;
-  cursor: pointer;
   transition: box-shadow 0.2s;
 }
 
-.search-bar:hover {
+.search-bar:focus-within {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
@@ -158,13 +216,27 @@ const userInitial = computed(() =>
   flex-shrink: 0;
 }
 
-.search-placeholder {
+.search-input {
   flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
   font-size: 14px;
+  color: var(--text);
+  padding: 0;
+}
+
+.search-input::placeholder {
   color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.search-input:focus {
+  outline: none;
+}
+
+/* 隐藏 type=search 默认清除按钮（部分浏览器） */
+.search-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
 }
 
 .search-btn {
@@ -289,7 +361,7 @@ const userInitial = computed(() =>
 .header-mobile-inner {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
   height: var(--header-h);
 }
 
@@ -300,14 +372,53 @@ const userInitial = computed(() =>
   font-size: 17px;
   font-weight: 800;
   color: var(--black);
+  flex-shrink: 0;
+  max-width: 42%;
 }
 
-.mobile-search-btn {
+.logo-mobile span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-search-form {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  color: var(--black);
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px;
+  background: var(--white);
+  border: 2px solid var(--black);
+  border-radius: 18px;
+}
+
+.mobile-search-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.mobile-search-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  color: var(--text);
+  padding: 0;
+}
+
+.mobile-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.mobile-search-input:focus {
+  outline: none;
+}
+
+.mobile-search-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
 }
 </style>

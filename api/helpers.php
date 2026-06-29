@@ -27,7 +27,15 @@ function getRequestBody(): array
 
 function getBearerToken(): ?string
 {
-    $header = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    $header = $_SERVER['HTTP_AUTHORIZATION']
+        ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
+        ?? '';
+
+    if ($header === '' && function_exists('apache_request_headers')) {
+        $headers = apache_request_headers();
+        $header = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+    }
+
     if (preg_match('/Bearer\s+(\S+)/', $header, $matches)) {
         return $matches[1];
     }

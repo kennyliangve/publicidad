@@ -17,7 +17,7 @@ export default defineConfig(({ command, mode }) => {
     },
     server: {
       port: 5173,
-      open: true,
+      open: false,
       proxy: {
         '/api': {
           target: proxyTarget,
@@ -25,6 +25,19 @@ export default defineConfig(({ command, mode }) => {
           secure: true,
           rewrite: (path) =>
             '/publicidad/api/index.php' + path.replace(/^\/api/, ''),
+        },
+        // 开发预览：/img/xxx.jpg → 线上 /publicidad/uploads/xxx.jpg（避免广告拦截 uploads/publicidad）
+        '/img': {
+          target: proxyTarget,
+          changeOrigin: true,
+          secure: true,
+          rewrite: (path) => '/publicidad/uploads' + path.replace(/^\/img/, ''),
+        },
+        '/logo': {
+          target: proxyTarget,
+          changeOrigin: true,
+          secure: true,
+          rewrite: (path) => '/publicidad/logo' + path.replace(/^\/logo/, ''),
         },
       },
     },

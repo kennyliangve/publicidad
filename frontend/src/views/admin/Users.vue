@@ -26,17 +26,34 @@
             <td>{{ u.phone }}</td>
             <td>{{ u.email || '-' }}</td>
             <td>
-              <select :value="u.role" class="form-select inline-select" @change="updateRole(u, $event)">
-                <option :value="0">普通用户</option>
-                <option :value="1">管理员</option>
+              <select
+                v-if="canEditUser(u)"
+                :value="u.role"
+                class="form-select inline-select"
+                @change="updateRole(u, $event)"
+              >
+                <option
+                  v-for="opt in roleOptionsFor(u)"
+                  :key="opt.value"
+                  :value="opt.value"
+                >
+                  {{ opt.label }}
+                </option>
               </select>
+              <span v-else class="role-readonly" :class="{ 'role-vip': Number(u.role) === ROLES.VIP }">{{ u.role_label }}</span>
             </td>
             <td>
-              <select :value="u.status" class="form-select inline-select" @change="updateStatus(u, $event)">
+              <select
+                v-if="canEditUser(u)"
+                :value="u.status"
+                class="form-select inline-select"
+                @change="updateStatus(u, $event)"
+              >
                 <option :value="1">正常</option>
                 <option :value="2">待审核</option>
                 <option :value="0">禁用</option>
               </select>
+              <span v-else>{{ u.status_label }}</span>
             </td>
             <td>{{ u.login_count }}</td>
             <td>{{ formatTime(u.created_at) }}</td>
@@ -55,19 +72,33 @@
 
 <script setup>
 import { ref, computed, inject, onMounted } from 'vue'
+import { useUserStore } from '@/stores/user'
 import { adminApi } from '@/api/admin'
+import { assignableRoles, canModifyUser, ROLES } from '@/utils/roles'
 
 const showToast = inject('showToast')
+const userStore = useUserStore()
 const list = ref([])
 const page = ref(1)
 const total = ref(0)
 const keyword = ref('')
 const limit = 20
 
+const myRole = computed(() => userStore.user?.role ?? 0)
 const totalPages = computed(() => Math.ceil(total.value / limit))
 
 function formatTime(t) {
   return t ? new Date(t).toLocaleDateString('zh-CN') : '-'
+}
+
+function canEditUser(u) {
+  return canModifyUser(myRole.value, u.role)
+}
+
+function roleOptionsFor(u) {
+  const opts = assignableRoles(myRole.value)
+  if (opts.some(o => o.value === u.role)) return opts
+  return [...opts, { value: u.role, label: u.role_label }]
 }
 
 async function load() {
@@ -109,6 +140,16 @@ onMounted(load)
 .inline-select {
   padding: 4px 8px;
   font-size: 13px;
-  min-width: 100px;
+  min-width: 110px;
+}
+
+.role-readonly {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.role-vip {
+  color: #8a6d00;
+  font-weight: 600;
 }
 </style>

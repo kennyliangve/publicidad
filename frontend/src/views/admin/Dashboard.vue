@@ -50,7 +50,7 @@
         </div>
       </section>
 
-      <section class="panel card">
+      <section v-if="recentUsers.length" class="panel card">
         <h3>最新用户</h3>
         <div class="admin-table-wrap">
           <table class="admin-table">

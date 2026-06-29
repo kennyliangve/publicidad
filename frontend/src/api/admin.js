@@ -19,4 +19,8 @@ export const adminApi = {
   updateUser: (id, data) => request(`/admin/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   getSettings: () => request('/admin/settings'),
   updateSettings: (data) => request('/admin/settings', { method: 'PUT', body: JSON.stringify(data) }),
+  getVipPlans: () => request('/admin/vip-plans'),
+  createVipPlan: (data) => request('/admin/vip-plans', { method: 'POST', body: JSON.stringify(data) }),
+  updateVipPlan: (id, data) => request(`/admin/vip-plans/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteVipPlan: (id) => request(`/admin/vip-plans/${id}`, { method: 'DELETE' }),
 }

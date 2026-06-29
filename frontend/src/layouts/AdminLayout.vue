@@ -7,7 +7,7 @@
       </div>
       <nav class="sidebar-nav">
         <router-link
-          v-for="item in navItems"
+          v-for="item in visibleNavItems"
           :key="item.path"
           :to="item.path"
           class="nav-link"
@@ -29,6 +29,7 @@
           <AppIcon name="menu" :size="22" />
         </button>
         <h1 class="page-title">{{ currentTitle }}</h1>
+        <span v-if="roleLabel" class="role-badge">{{ roleLabel }}</span>
         <div class="topbar-user">{{ userStore.user?.username }}</div>
         <button type="button" class="logout-btn" @click="logout">退出</button>
       </header>
@@ -45,6 +46,7 @@
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { canAccessAdminModule, roleLabel as getRoleLabel } from '@/utils/roles'
 import AppIcon from '@/components/AppIcon.vue'
 
 const route = useRoute()
@@ -58,16 +60,24 @@ function logout() {
 }
 
 const navItems = [
-  { path: '/admin/dashboard', label: '仪表盘', icon: 'home' },
-  { path: '/admin/categories', label: '分类管理', icon: 'store' },
-  { path: '/admin/posts', label: '信息管理', icon: 'file-text' },
-  { path: '/admin/users', label: '用户管理', icon: 'users' },
-  { path: '/admin/settings', label: '系统设置', icon: 'wrench' },
+  { path: '/admin/dashboard', label: '仪表盘', icon: 'home', module: 'dashboard' },
+  { path: '/admin/categories', label: '分类管理', icon: 'store', module: 'categories' },
+  { path: '/admin/posts', label: '信息管理', icon: 'file-text', module: 'posts' },
+  { path: '/admin/users', label: '用户管理', icon: 'users', module: 'users' },
+  { path: '/admin/regions', label: '省/城市管理', icon: 'map-pin', module: 'regions' },
+  { path: '/admin/vip-settings', label: 'VIP 与银行', icon: 'star', module: 'vip' },
+  { path: '/admin/settings', label: '系统设置', icon: 'wrench', module: 'settings' },
 ]
+
+const visibleNavItems = computed(() => {
+  const role = userStore.user?.role ?? 0
+  return navItems.filter(item => canAccessAdminModule(role, item.module))
+})
 
 const titleMap = Object.fromEntries(navItems.map(i => [i.path, i.label]))
 
 const currentTitle = computed(() => titleMap[route.path] || '管理后台')
+const roleLabel = computed(() => getRoleLabel(userStore.user?.role))
 </script>
 
 <style scoped>
@@ -161,6 +171,15 @@ const currentTitle = computed(() => titleMap[route.path] || '管理后台')
   font-size: 18px;
   font-weight: 700;
   flex: 1;
+}
+
+.role-badge {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(248, 208, 0, 0.15);
+  color: #996600;
+  font-weight: 600;
 }
 
 .topbar-user {

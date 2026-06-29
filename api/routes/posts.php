@@ -2,6 +2,12 @@
 
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../helpers.php';
+require_once __DIR__ . '/../helpers/settings.php';
+require_once __DIR__ . '/../helpers/regions.php';
+require_once __DIR__ . '/../helpers/phone.php';
+require_once __DIR__ . '/../helpers/user.php';
+require_once __DIR__ . '/../helpers/vid.php';
+require_once __DIR__ . '/../helpers/post.php';
 
 function handlePosts(string $method, ?string $id, ?string $action): void
 {
@@ -21,7 +27,6 @@ function handlePosts(string $method, ?string $id, ?string $action): void
         $params = [];
 
         if ($categoryId) {
-            // 包含子分类
             $stmt = $db->prepare('SELECT id FROM categories WHERE id = ? OR parent_id = ?');
             $stmt->execute([$categoryId, $categoryId]);
             $catIds = array_column($stmt->fetchAll(), 'id');
@@ -59,12 +64,7 @@ function handlePosts(string $method, ?string $id, ?string $action): void
 
         $stmt = $db->prepare($sql);
         $stmt->execute($params);
-        $posts = $stmt->fetchAll();
-
-        foreach ($posts as &$post) {
-            $post['images'] = json_decode($post['images'] ?? '[]', true) ?: [];
-            $post['price'] = $post['price'] !== null ? (float)$post['price'] : null;
-        }
+        $posts = formatPostsPublic($stmt->fetchAll());
 
         jsonSuccess([
             'list'  => $posts,
@@ -74,8 +74,13 @@ function handlePosts(string $method, ?string $id, ?string $action): void
         ]);
     }
 
-    // GET /posts/{id} - 详情
+    // GET /posts/{vid} - 详情
     if ($method === 'GET' && $id && !$action) {
+        $postId = resolvePostId($db, $id);
+        if (!$postId) {
+            jsonError('信息不存在', 404);
+        }
+
         $stmt = $db->prepare(
             'SELECT p.*, c.name as category_name, c.slug as category_slug, u.username, u.phone as user_phone 
              FROM posts p 
@@ -83,18 +88,17 @@ function handlePosts(string $method, ?string $id, ?string $action): void
              LEFT JOIN users u ON p.user_id = u.id 
              WHERE p.id = ? AND p.status = 1'
         );
-        $stmt->execute([$id]);
+        $stmt->execute([$postId]);
         $post = $stmt->fetch();
 
-        if (!$post) jsonError('信息不存在', 404);
+        if (!$post) {
+            jsonError('信息不存在', 404);
+        }
 
-        // 增加浏览量
-        $db->prepare('UPDATE posts SET views = views + 1 WHERE id = ?')->execute([$id]);
+        $db->prepare('UPDATE posts SET views = views + 1 WHERE id = ?')->execute([$postId]);
         $post['views'] = (int)$post['views'] + 1;
-        $post['images'] = json_decode($post['images'] ?? '[]', true) ?: [];
-        $post['price'] = $post['price'] !== null ? (float)$post['price'] : null;
 
-        jsonSuccess($post);
+        jsonSuccess(formatPostPublic($post));
     }
 
     // GET /posts/my - 我的发布
@@ -114,11 +118,7 @@ function handlePosts(string $method, ?string $id, ?string $action): void
              WHERE p.user_id = ? ORDER BY p.created_at DESC LIMIT $limit OFFSET $offset"
         );
         $stmt->execute([$userId]);
-        $posts = $stmt->fetchAll();
-
-        foreach ($posts as &$post) {
-            $post['images'] = json_decode($post['images'] ?? '[]', true) ?: [];
-        }
+        $posts = formatPostsPublic($stmt->fetchAll());
 
         jsonSuccess(['list' => $posts, 'total' => $total, 'page' => $page]);
     }
@@ -126,6 +126,11 @@ function handlePosts(string $method, ?string $id, ?string $action): void
     // POST /posts - 发布
     if ($method === 'POST' && !$id) {
         $userId = requireAuth();
+        $user = findUserById($db, $userId);
+        if (!$user) {
+            jsonError('用户不存在', 404);
+        }
+
         $body = getRequestBody();
 
         $title = trim($body['title'] ?? '');
@@ -136,46 +141,60 @@ function handlePosts(string $method, ?string $id, ?string $action): void
         if (!$title || !$content || !$categoryId || !$contactPhone) {
             jsonError('请填写必填项');
         }
+        $contactPhone = assertValidVenezuelaPhone($contactPhone, '联系电话');
 
-        $stmt = $db->prepare(
-            'INSERT INTO posts (user_id, category_id, title, content, price, price_unit, 
-             contact_name, contact_phone, province, city, district, address, images) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-        );
+        $imagesList = isset($body['images']) && is_array($body['images']) ? $body['images'] : [];
+        if ($imagesList && !userCanUploadPostImages((int)($user['role'] ?? 0), $user)) {
+            jsonError('仅 VIP 及以上用户可上传图片', 403);
+        }
 
-        $images = isset($body['images']) ? json_encode($body['images']) : '[]';
+        $images = $imagesList ? json_encode($imagesList) : '[]';
         $price = isset($body['price']) && $body['price'] !== '' ? (float)$body['price'] : null;
+        $priceUnit = assertValidPriceUnit($db, $body['price_unit'] ?? null);
+        [$province, $city] = assertValidRegion($db, $body['province'] ?? null, $body['city'] ?? null);
+        $status = isPostReviewRequired($db) ? 2 : 1;
 
-        $stmt->execute([
-            $userId,
-            $categoryId,
-            $title,
-            $content,
-            $price,
-            $body['price_unit'] ?? '元',
-            $body['contact_name'] ?? null,
-            $contactPhone,
-            $body['province'] ?? null,
-            $body['city'] ?? null,
-            $body['district'] ?? null,
-            $body['address'] ?? null,
-            $images,
+        $created = insertPostWithVid($db, [
+            'user_id'       => $userId,
+            'category_id'   => $categoryId,
+            'title'         => $title,
+            'content'       => $content,
+            'price'         => $price,
+            'price_unit'    => $priceUnit,
+            'contact_name'  => $body['contact_name'] ?? null,
+            'contact_phone' => $contactPhone,
+            'province'      => $province,
+            'city'          => $city,
+            'district'      => $body['district'] ?? null,
+            'address'       => $body['address'] ?? null,
+            'images'        => $images,
+            'status'        => $status,
         ]);
 
-        jsonSuccess(['id' => (int)$db->lastInsertId()], '发布成功');
+        $message = $status === 2 ? '提交成功，等待审核' : '发布成功';
+        jsonSuccess(['id' => $created['public_id'], 'status' => $status], $message);
     }
 
-    // DELETE /posts/{id} - 删除
+    // DELETE /posts/{vid} - 删除
     if ($method === 'DELETE' && $id) {
         $userId = requireAuth();
+        $postId = resolvePostId($db, $id);
+        if (!$postId) {
+            jsonError('信息不存在', 404);
+        }
+
         $stmt = $db->prepare('SELECT user_id FROM posts WHERE id = ?');
-        $stmt->execute([$id]);
+        $stmt->execute([$postId]);
         $post = $stmt->fetch();
 
-        if (!$post) jsonError('信息不存在', 404);
-        if ((int)$post['user_id'] !== $userId) jsonError('无权操作', 403);
+        if (!$post) {
+            jsonError('信息不存在', 404);
+        }
+        if ((int)$post['user_id'] !== $userId) {
+            jsonError('无权操作', 403);
+        }
 
-        $db->prepare('UPDATE posts SET status = 0 WHERE id = ?')->execute([$id]);
+        $db->prepare('UPDATE posts SET status = 0 WHERE id = ?')->execute([$postId]);
         jsonSuccess(null, '删除成功');
     }
 

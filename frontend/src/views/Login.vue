@@ -11,18 +11,26 @@
         </div>
 
         <form class="auth-form" @submit.prevent="submit">
+          <div v-if="errorMsg" class="error-banner">{{ errorMsg }}</div>
           <div class="form-group">
             <label class="form-label">手机号 / 邮箱 <span class="required">*</span></label>
             <div class="input-wrap">
               <AppIcon :name="accountIcon" :size="18" class="input-icon" />
+              <PhoneInput
+                v-if="!isEmail"
+                v-model="form.account"
+                placeholder="0412-0000000"
+              />
               <input
+                v-else
                 v-model="form.account"
                 class="form-input"
-                :type="isEmail ? 'email' : 'text'"
-                placeholder="请输入手机号或邮箱"
+                type="email"
+                placeholder="example@email.com"
                 autocomplete="username"
               />
             </div>
+            <p v-if="!isEmail" class="field-hint">{{ phoneHint }}</p>
           </div>
 
           <div class="form-group">
@@ -51,16 +59,17 @@
           </button>
         </form>
 
-        <p class="auth-footer">
+        <p v-if="siteStore.allowRegister" class="auth-footer">
           还没有账号？<router-link to="/register">立即注册</router-link>
         </p>
+        <p v-else class="auth-footer auth-footer-muted">当前已关闭新用户注册</p>
       </div>
 
       <div class="auth-side hide-mobile">
         <div class="side-badge">
           <AppIcon name="home" :size="32" />
         </div>
-        <h3>同城信息平台</h3>
+        <h3>{{ siteStore.siteName }}</h3>
         <ul class="side-list">
           <li><AppIcon name="briefcase" :size="16" /> 浏览招聘、租房、二手车</li>
           <li><AppIcon name="plus" :size="16" /> 免费发布本地信息</li>
@@ -72,41 +81,57 @@
 </template>
 
 <script setup>
-import { ref, computed, inject } from 'vue'
+import { ref, computed, inject, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { useSiteStore } from '@/stores/site'
 import { api } from '@/api'
 import AppIcon from '@/components/AppIcon.vue'
+import PhoneInput from '@/components/PhoneInput.vue'
+import { normalizeLoginAccount, PHONE_HINT } from '@/utils/phone'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const siteStore = useSiteStore()
 const showToast = inject('showToast')
 
 const loading = ref(false)
 const showPwd = ref(false)
+const errorMsg = ref('')
 const form = ref({ account: '', password: '' })
 
 const isEmail = computed(() => form.value.account.includes('@'))
 const accountIcon = computed(() => (isEmail.value ? 'mail' : 'phone'))
+const phoneHint = PHONE_HINT
+
+onMounted(() => {
+  if (route.query.error === 'register_disabled') {
+    errorMsg.value = '当前已关闭用户注册'
+  }
+})
 
 async function submit() {
   const account = form.value.account.trim()
   const password = form.value.password
+  errorMsg.value = ''
 
   if (!account || !password) {
-    showToast('请填写账号和密码')
+    errorMsg.value = '请填写账号和密码'
     return
   }
 
   loading.value = true
   try {
-    const data = await api.login({ account, password })
+    const data = await api.login({
+      account: normalizeLoginAccount(account),
+      password,
+    })
     userStore.setAuth(data)
     showToast('登录成功')
     router.push(route.query.redirect || '/')
   } catch (err) {
-    showToast(err.message)
+    errorMsg.value = err.message || '登录失败'
   } finally {
     loading.value = false
   }
@@ -171,6 +196,17 @@ async function submit() {
   gap: 2px;
 }
 
+.error-banner {
+  background: #fff5f5;
+  border: 1px solid #ffcdd2;
+  color: #c62828;
+  font-size: 13px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
 .input-wrap {
   position: relative;
   display: flex;
@@ -184,7 +220,8 @@ async function submit() {
   pointer-events: none;
 }
 
-.input-wrap .form-input {
+.input-wrap .form-input,
+.input-wrap :deep(input.form-input) {
   padding-left: 40px;
 }
 
@@ -226,6 +263,12 @@ async function submit() {
   opacity: 0.6;
 }
 
+.field-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
 .auth-footer {
   text-align: center;
   margin-top: 24px;
@@ -236,6 +279,10 @@ async function submit() {
 .auth-footer a {
   color: var(--black);
   font-weight: 700;
+}
+
+.auth-footer-muted {
+  color: var(--text-muted);
 }
 
 .auth-side {

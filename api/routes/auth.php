@@ -3,6 +3,8 @@
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../helpers.php';
 require_once __DIR__ . '/../helpers/user.php';
+require_once __DIR__ . '/../helpers/phone.php';
+require_once __DIR__ . '/../helpers/settings.php';
 
 function handleAuth(string $method, ?string $action): void
 {
@@ -12,6 +14,10 @@ function handleAuth(string $method, ?string $action): void
     switch ($action) {
         case 'register':
             if ($method !== 'POST') jsonError('Method not allowed', 405);
+
+            if (!isRegisterAllowed($db)) {
+                jsonError('当前已关闭用户注册', 403);
+            }
 
             $username = trim($body['username'] ?? '');
             $phone = trim($body['phone'] ?? '');
@@ -27,6 +33,7 @@ function handleAuth(string $method, ?string $action): void
             if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
                 jsonError('邮箱格式不正确');
             }
+            $phone = assertValidVenezuelaPhone($phone, '手机号');
 
             $stmt = $db->prepare('SELECT id FROM users WHERE phone = ?');
             $stmt->execute([$phone]);
@@ -44,15 +51,31 @@ function handleAuth(string $method, ?string $action): void
             $registerIp = getClientIp();
             $registerSource = trim($body['register_source'] ?? 'web') ?: 'web';
 
-            $stmt = $db->prepare(
-                'INSERT INTO users (username, phone, email, password, register_ip, register_source, status, role) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-            );
-            $stmt->execute([
-                $username, $phone, $email, $hash,
-                $registerIp, $registerSource,
-                USER_STATUS_ACTIVE, USER_ROLE_NORMAL,
-            ]);
+            require_once __DIR__ . '/../helpers/vid.php';
+            $hasVid = tableHasVidColumn($db, 'users');
+            $vid = $hasVid ? generateUniqueVid($db, 'users') : null;
+
+            if ($hasVid) {
+                $stmt = $db->prepare(
+                    'INSERT INTO users (vid, username, phone, email, password, register_ip, register_source, status, role) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                );
+                $stmt->execute([
+                    $vid, $username, $phone, $email, $hash,
+                    $registerIp, $registerSource,
+                    USER_STATUS_ACTIVE, USER_ROLE_NORMAL,
+                ]);
+            } else {
+                $stmt = $db->prepare(
+                    'INSERT INTO users (username, phone, email, password, register_ip, register_source, status, role) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+                );
+                $stmt->execute([
+                    $username, $phone, $email, $hash,
+                    $registerIp, $registerSource,
+                    USER_STATUS_ACTIVE, USER_ROLE_NORMAL,
+                ]);
+            }
             $userId = (int)$db->lastInsertId();
 
             $user = findUserById($db, $userId);
@@ -75,21 +98,16 @@ function handleAuth(string $method, ?string $action): void
                 jsonError('请填写账号和密码');
             }
 
-            if (strpos($account, '@') !== false) {
-                $account = strtolower($account);
-                $stmt = $db->prepare('SELECT * FROM users WHERE email = ?');
-            } else {
-                $stmt = $db->prepare('SELECT * FROM users WHERE phone = ?');
-            }
-            $stmt->execute([$account]);
-            $user = $stmt->fetch();
+            $user = findUserByLoginAccount($db, $account);
 
             if (!$user || !password_verify($password, $user['password'])) {
-                jsonError('账号或密码错误');
+                jsonError('账号或密码错误', 401);
             }
 
             assertUserActive($user);
             recordUserLogin($db, (int)$user['id']);
+            require_once __DIR__ . '/../helpers/vip.php';
+            expireVipUsers($db, (int)$user['id']);
             $user = findUserById($db, (int)$user['id']);
 
             jsonSuccess([
@@ -101,6 +119,8 @@ function handleAuth(string $method, ?string $action): void
         case 'profile':
             if ($method === 'GET') {
                 $userId = requireAuth();
+                require_once __DIR__ . '/../helpers/vip.php';
+                expireVipUsers($db, $userId);
                 $user = findUserById($db, $userId);
                 if (!$user) jsonError('用户不存在', 404);
                 assertUserActive($user);

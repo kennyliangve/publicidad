@@ -28,7 +28,7 @@ export const useUserStore = defineStore('user', () => {
       user.value = await api.getProfile()
       localStorage.setItem('user', JSON.stringify(user.value))
     } catch {
-      if (!user.value) logout()
+      logout()
     }
   }
 

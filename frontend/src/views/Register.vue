@@ -43,16 +43,15 @@
 
           <div class="form-group">
             <label class="form-label">手机号 <span class="required">*</span></label>
-            <div class="input-wrap">
+            <div class="input-wrap" :class="{ error: phoneError }">
               <AppIcon name="phone" :size="18" class="input-icon" />
-              <input
+              <PhoneInput
                 v-model="form.phone"
-                class="form-input"
-                type="tel"
-                placeholder="用于联系与登录"
-                autocomplete="tel"
+                placeholder="0412-0000000"
               />
             </div>
+            <p v-if="phoneError" class="field-error">{{ phoneError }}</p>
+            <p v-else class="field-hint">{{ phoneHint }}</p>
           </div>
 
           <div class="form-row">
@@ -103,7 +102,7 @@
         <div class="side-badge">
           <AppIcon name="home" :size="32" />
         </div>
-        <h3>加入同城信息</h3>
+        <h3>加入{{ siteStore.siteName }}</h3>
         <ul class="side-list">
           <li><AppIcon name="plus" :size="16" /> 免费发布招聘、租房等信息</li>
           <li><AppIcon name="search" :size="16" /> 快速搜索本地服务</li>
@@ -118,16 +117,22 @@
 import { ref, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { useSiteStore } from '@/stores/site'
 import { api } from '@/api'
 import AppIcon from '@/components/AppIcon.vue'
+import PhoneInput from '@/components/PhoneInput.vue'
+import { validatePhoneMessage, normalizeVenezuelaPhone, PHONE_HINT } from '@/utils/phone'
 
 const router = useRouter()
 const userStore = useUserStore()
+const siteStore = useSiteStore()
 const showToast = inject('showToast')
 
 const loading = ref(false)
 const showPwd = ref(false)
 const emailError = ref('')
+const phoneError = ref('')
+const phoneHint = PHONE_HINT
 const form = ref({
   username: '',
   email: '',
@@ -147,6 +152,12 @@ function validateEmail() {
   return ok
 }
 
+function validatePhoneField() {
+  const msg = validatePhoneMessage(form.value.phone, '手机号')
+  phoneError.value = msg || ''
+  return !msg
+}
+
 async function submit() {
   const f = form.value
   if (!f.username || !f.email || !f.phone || !f.password || !f.confirm) {
@@ -155,6 +166,10 @@ async function submit() {
   }
   if (!validateEmail()) {
     showToast('邮箱格式不正确')
+    return
+  }
+  if (!validatePhoneField()) {
+    showToast(phoneError.value || '手机号格式不正确')
     return
   }
   if (f.password.length < 6) {
@@ -171,7 +186,7 @@ async function submit() {
     const data = await api.register({
       username: f.username.trim(),
       email: f.email.trim().toLowerCase(),
-      phone: f.phone.trim(),
+      phone: normalizeVenezuelaPhone(f.phone),
       password: f.password,
     })
     userStore.setAuth(data)
@@ -260,13 +275,20 @@ async function submit() {
   pointer-events: none;
 }
 
-.input-wrap .form-input {
+.input-wrap .form-input,
+.input-wrap :deep(input.form-input) {
   padding-left: 40px;
 }
 
 .field-error {
   font-size: 12px;
   color: #e74c3c;
+  margin-top: 4px;
+}
+
+.field-hint {
+  font-size: 12px;
+  color: var(--text-muted);
   margin-top: 4px;
 }
 

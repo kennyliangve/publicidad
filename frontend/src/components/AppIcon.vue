@@ -12,8 +12,9 @@ import { computed } from 'vue'
 import {
   Home, Search, Plus, User, Briefcase, Store, Building2, Car, CarFront,
   Package, PawPrint, Users, MapPin, Phone, PenLine, Inbox, AlertTriangle,
-  FileText, ChevronRight, Clock, Sparkles, Wrench, Truck, GraduationCap,
+  FileText,   ChevronRight, Clock, Sparkles, Wrench, Truck, GraduationCap,
   Heart, Calendar, Circle, SearchX, Mail, Lock, Menu,
+  ArrowLeft, Copy, Share2, Eye, X, ChevronLeft, MessageCircle, Star, Check,
 } from 'lucide-vue-next'
 
 const iconMap = {
@@ -48,6 +49,15 @@ const iconMap = {
   lock: Lock,
   menu: Menu,
   circle: Circle,
+  'arrow-left': ArrowLeft,
+  copy: Copy,
+  'share-2': Share2,
+  eye: Eye,
+  x: X,
+  'chevron-left': ChevronLeft,
+  'message-circle': MessageCircle,
+  star: Star,
+  check: Check,
 }
 
 const props = defineProps({

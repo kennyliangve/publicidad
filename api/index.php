@@ -40,13 +40,26 @@ if (preg_match('#/assets/(.+)$#', $uri, $m)) {
     }
 }
 
-// uploads 目录
-if (preg_match('#/uploads/(.+)$#', $uri, $m)) {
+// 用户上传图片 uploads/
+if (preg_match('#/(?:uploads|media)/(.+)$#', $uri, $m)) {
     $file = $root . '/uploads/' . basename($m[1]);
     if (is_file($file)) {
         $ext = pathinfo($file, PATHINFO_EXTENSION);
         $types = ['jpg' => 'image/jpeg', 'png' => 'image/png', 'gif' => 'image/gif', 'webp' => 'image/webp'];
         header('Content-Type: ' . ($types[$ext] ?? 'application/octet-stream'));
+        readfile($file);
+        exit;
+    }
+}
+
+// 系统 Logo logo/
+if (preg_match('#/logo/(.+)$#', $uri, $m)) {
+    $file = $root . '/logo/' . basename($m[1]);
+    if (is_file($file)) {
+        $ext = pathinfo($file, PATHINFO_EXTENSION);
+        $types = ['jpg' => 'image/jpeg', 'png' => 'image/png', 'gif' => 'image/gif', 'webp' => 'image/webp', 'svg' => 'image/svg+xml'];
+        header('Content-Type: ' . ($types[$ext] ?? 'application/octet-stream'));
+        header('Cache-Control: public, max-age=31536000');
         readfile($file);
         exit;
     }

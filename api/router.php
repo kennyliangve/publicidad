@@ -39,7 +39,16 @@ try {
 
         case 'upload':
             require __DIR__ . '/routes/upload.php';
-            handleUpload($method);
+            if (($segments[1] ?? '') === 'logo') {
+                handleUploadLogo($method);
+            } else {
+                handleUpload($method);
+            }
+            break;
+
+        case 'files':
+            require __DIR__ . '/routes/files.php';
+            handleFiles($method, $id);
             break;
 
         case 'health':
@@ -55,6 +64,16 @@ try {
         case 'admin':
             require __DIR__ . '/routes/admin.php';
             handleAdmin($method, $id, $action);
+            break;
+
+        case 'settings':
+            require __DIR__ . '/routes/settings.php';
+            handleSettings($method, $id);
+            break;
+
+        case 'vip':
+            require __DIR__ . '/routes/vip.php';
+            handleVip($method, $id);
             break;
 
         case '':

@@ -1,5 +1,5 @@
-// API 地址：开发走 Vite 代理；Cloudflare Pages 走 /api 函数代理；原服务器走 index.php
-const API_BASE = import.meta.env.VITE_API_BASE
+// API 地址：开发可直连线上 PHP（VITE_API_BASE）；生产走 index.php
+export const API_BASE = import.meta.env.VITE_API_BASE
   || (import.meta.env.DEV ? '/api' : '/publicidad/api/index.php')
 
 async function request(url, options = {}) {
@@ -11,10 +11,19 @@ async function request(url, options = {}) {
   }
 
   const res = await fetch(`${API_BASE}${url}`, { ...options, headers })
-  const data = await res.json()
+  let data
+  try {
+    data = await res.json()
+  } catch {
+    throw new Error(`请求失败 (${res.status})`)
+  }
 
   if (data.code !== 0) {
-    throw new Error(data.message || '请求失败')
+    if (data.code === 401) {
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+    }
+    throw new Error(data.message || `请求失败 (${res.status})`)
   }
   return data.data
 }
@@ -22,7 +31,10 @@ async function request(url, options = {}) {
 export { request }
 
 export const api = {
+  getSiteSettings: () => request('/settings/public'),
   getCategories: () => request('/categories'),
+  getPriceUnits: () => request('/settings/price-units'),
+  getRegions: () => request('/settings/regions'),
   getPosts: (params) => {
     const qs = new URLSearchParams(params).toString()
     return request(`/posts?${qs}`)
@@ -35,6 +47,8 @@ export const api = {
   register: (data) => request('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
   getProfile: () => request('/auth/profile'),
   updateProfile: (data) => request('/auth/profile', { method: 'PUT', body: JSON.stringify(data) }),
+  getVipPlan: () => request('/vip/plan'),
+  verifyVipPayment: (data) => request('/vip/verify', { method: 'POST', body: JSON.stringify(data) }),
   upload: async (file) => {
     const token = localStorage.getItem('token')
     const form = new FormData()
@@ -44,8 +58,43 @@ export const api = {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: form,
     })
-    const data = await res.json()
-    if (data.code !== 0) throw new Error(data.message)
+    let data
+    try {
+      data = await res.json()
+    } catch {
+      throw new Error(`上传失败 (${res.status})`)
+    }
+    if (data.code !== 0) {
+      if (data.code === 401) {
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+      }
+      throw new Error(data.message || `上传失败 (${res.status})`)
+    }
+    return data.data
+  },
+  uploadLogo: async (file) => {
+    const token = localStorage.getItem('token')
+    const form = new FormData()
+    form.append('file', file)
+    const res = await fetch(`${API_BASE}/upload/logo`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    })
+    let data
+    try {
+      data = await res.json()
+    } catch {
+      throw new Error(`上传失败 (${res.status})`)
+    }
+    if (data.code !== 0) {
+      if (data.code === 401) {
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+      }
+      throw new Error(data.message || `上传失败 (${res.status})`)
+    }
     return data.data
   },
 }

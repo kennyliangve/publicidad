@@ -19,7 +19,7 @@
           <p>数据库可能缺少 <code>role</code> 字段，任选一种方式修复：</p>
           <ol>
             <li>浏览器打开：<a :href="installUrl" target="_blank" rel="noopener">{{ installUrl }}</a></li>
-            <li>或在 phpMyAdmin 执行 <code>database/upgrade_manual.sql</code>（含 <code>UPDATE users SET role=1</code>）</li>
+            <li>或在 phpMyAdmin 执行 <code>database/upgrade_manual.sql</code>（含 <code>UPDATE users SET role=2</code> 或更高）</li>
           </ol>
         </div>
 
@@ -27,14 +27,21 @@
           <label class="form-label">管理员账号</label>
           <div class="input-wrap">
             <AppIcon :name="accountIcon" :size="18" class="input-icon" />
+            <PhoneInput
+              v-if="!isEmail"
+              v-model="form.account"
+              placeholder="0412-0000000"
+            />
             <input
+              v-else
               v-model="form.account"
               class="form-input"
-              :type="isEmail ? 'email' : 'text'"
-              placeholder="手机号或邮箱"
+              type="email"
+              placeholder="example@email.com"
               autocomplete="username"
             />
           </div>
+          <p v-if="!isEmail" class="field-hint">{{ phoneHint }}</p>
         </div>
 
         <div class="form-group">
@@ -74,7 +81,10 @@ import { ref, computed, inject, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { api } from '@/api'
+import { isStaff } from '@/utils/roles'
+import { normalizeLoginAccount, PHONE_HINT } from '@/utils/phone'
 import AppIcon from '@/components/AppIcon.vue'
+import PhoneInput from '@/components/PhoneInput.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -93,6 +103,7 @@ const installUrl = import.meta.env.PROD
 
 const isEmail = computed(() => form.value.account.includes('@'))
 const accountIcon = computed(() => (isEmail.value ? 'mail' : 'phone'))
+const phoneHint = PHONE_HINT
 
 onMounted(() => {
   if (route.query.error === 'forbidden') {
@@ -113,12 +124,15 @@ async function submit() {
 
   loading.value = true
   try {
-    const data = await api.login({ account, password })
+    const data = await api.login({
+      account: normalizeLoginAccount(account),
+      password,
+    })
     userStore.setAuth(data)
 
-    if (Number(data.user?.role) !== 1) {
+    if (!isStaff(data.user?.role)) {
       userStore.logout()
-      errorMsg.value = '该账号不是管理员。若数据库尚未升级，请先执行迁移（见下方说明）'
+      errorMsg.value = '该账号无后台权限。审核员及以上角色方可登录（见下方说明）'
       needMigrate.value = true
       return
     }
@@ -229,7 +243,8 @@ async function submit() {
   pointer-events: none;
 }
 
-.input-wrap .form-input {
+.input-wrap .form-input,
+.input-wrap :deep(input.form-input) {
   width: 100%;
   padding: 12px 14px 12px 42px;
   background: #1e1e1e;
@@ -238,6 +253,13 @@ async function submit() {
   color: #f5f5f5;
   font-size: 15px;
   transition: border-color 0.15s;
+}
+
+.field-hint {
+  font-size: 12px;
+  color: rgba(248, 208, 0, 0.55);
+  margin-top: 6px;
+  margin-bottom: 8px;
 }
 
 .input-wrap .form-input::placeholder {
