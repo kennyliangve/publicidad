@@ -1,6 +1,4 @@
-// API 地址：开发可直连线上 PHP（VITE_API_BASE）；生产走 index.php
-export const API_BASE = import.meta.env.VITE_API_BASE
-  || (import.meta.env.DEV ? '/api' : '/publicidad/api/index.php')
+import { API_BASE } from '@/config/runtime'
 
 async function request(url, options = {}) {
   const token = localStorage.getItem('token')
@@ -29,6 +27,7 @@ async function request(url, options = {}) {
 }
 
 export { request }
+export { API_BASE } from '@/config/runtime'
 
 export const api = {
   getSiteSettings: () => request('/settings/public'),

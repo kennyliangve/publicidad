@@ -85,6 +85,8 @@ import { normalizeLoginAccount } from '@/utils/phone'
 import AppIcon from '@/components/AppIcon.vue'
 import PhoneInput from '@/components/PhoneInput.vue'
 
+import { SITE_ORIGIN } from '@/config/runtime'
+
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
@@ -96,9 +98,7 @@ const errorMsg = ref('')
 const needMigrate = ref(false)
 const form = ref({ account: '', password: '' })
 
-const installUrl = import.meta.env.PROD
-  ? '/publicidad/api/install.php?step=install'
-  : 'https://www.vecino.com.ve/publicidad/api/install.php?step=install'
+const installUrl = `${SITE_ORIGIN || 'https://www.vecino.com.ve'}/publicidad/api/install.php?step=install`
 
 const isEmail = computed(() => form.value.account.includes('@'))
 const accountIcon = computed(() => (isEmail.value ? 'mail' : 'phone'))

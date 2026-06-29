@@ -1,5 +1,5 @@
 /**
- * Cloudflare Worker：/api 代理到 PHP 后端，其余请求走静态资源
+ * Cloudflare Worker：/api 代理到 PHP 后端，静态资源与 SPA 回退
  */
 export default {
   async fetch(request, env) {
@@ -7,6 +7,10 @@ export default {
 
     if (url.pathname.startsWith('/api')) {
       return proxyApi(request, env)
+    }
+
+    if (url.pathname.startsWith('/publicidad/uploads') || url.pathname.startsWith('/publicidad/logo')) {
+      return proxyStatic(request, env)
     }
 
     return env.ASSETS.fetch(request)
@@ -44,6 +48,23 @@ async function proxyApi(request, env) {
   return new Response(response.body, {
     status: response.status,
     headers: outHeaders,
+  })
+}
+
+async function proxyStatic(request, env) {
+  const siteOrigin = (env.SITE_ORIGIN || 'https://www.vecino.com.ve').replace(/\/$/, '')
+  const url = new URL(request.url)
+  const target = `${siteOrigin}${url.pathname}${url.search}`
+
+  const response = await fetch(target, {
+    method: request.method,
+    headers: request.headers,
+    redirect: 'follow',
+  })
+
+  return new Response(response.body, {
+    status: response.status,
+    headers: response.headers,
   })
 }
 

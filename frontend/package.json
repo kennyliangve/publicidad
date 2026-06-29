@@ -7,7 +7,7 @@
     "dev": "nodemon",
     "dev:vite": "vite",
     "build": "vite build",
-    "build:cloudflare": "vite build --mode cloudflare && node -e \"try{require('fs').unlinkSync('../dist/_redirects')}catch(e){}\"",
+    "build:cloudflare": "vite build --mode cloudflare",
     "preview": "vite preview"
   },
   "dependencies": {

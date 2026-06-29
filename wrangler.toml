@@ -9,3 +9,4 @@ not_found_handling = "single-page-application"
 
 [vars]
 API_ORIGIN = "https://www.vecino.com.ve/publicidad/api/index.php"
+SITE_ORIGIN = "https://www.vecino.com.ve"
