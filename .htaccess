@@ -3,6 +3,10 @@ DirectoryIndex index.php index.html
 RewriteEngine On
 RewriteBase /publicidad/
 
+# 禁止访问 node_modules（防止误传后被下载）
+RewriteRule ^frontend/node_modules(/|$) - [F,L]
+RewriteRule ^node_modules(/|$) - [F,L]
+
 # 已有真实文件/目录则直接访问
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d

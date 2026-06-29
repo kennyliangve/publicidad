@@ -1,0 +1,33 @@
+# 依赖（不上传服务器）
+node_modules/
+frontend/node_modules/
+
+# 前端开发缓存
+frontend/.vite/
+frontend/dist/
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+
+# 系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Wrangler 本地密钥（勿提交）
+.dev.vars
+
+# 日志
+*.log
+npm-debug.log*

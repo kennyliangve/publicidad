@@ -74,7 +74,7 @@
         <label class="form-label">图片（最多6张）</label>
         <div class="image-upload">
           <div v-for="(img, i) in form.images" :key="i" class="img-preview">
-            <img :src="img" />
+            <img :src="resolveAssetUrl(img)" />
             <button class="img-remove" @click="removeImage(i)">×</button>
           </div>
           <label v-if="form.images.length < 6" class="img-add">
@@ -95,6 +95,7 @@
 import { ref, inject, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '@/api'
+import { resolveAssetUrl } from '@/utils/asset'
 
 const router = useRouter()
 const showToast = inject('showToast')

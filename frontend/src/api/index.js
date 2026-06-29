@@ -1,7 +1,6 @@
-// 线上服务器未启用 URL 重写，需通过 index.php 访问 API
-const API_BASE = import.meta.env.DEV
-  ? '/api'
-  : '/publicidad/api/index.php'
+// API 地址：开发走 Vite 代理；Cloudflare Pages 走 /api 函数代理；原服务器走 index.php
+const API_BASE = import.meta.env.VITE_API_BASE
+  || (import.meta.env.DEV ? '/api' : '/publicidad/api/index.php')
 
 async function request(url, options = {}) {
   const token = localStorage.getItem('token')

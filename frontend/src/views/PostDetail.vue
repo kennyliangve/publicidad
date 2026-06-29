@@ -15,7 +15,7 @@
         </div>
 
         <div v-if="post.images?.length" class="detail-images">
-          <img v-for="(img, i) in post.images" :key="i" :src="img" @click="previewImage(img)" />
+          <img v-for="(img, i) in post.images" :key="i" :src="resolveAssetUrl(img)" @click="previewImage(img)" />
         </div>
 
         <div class="detail-content">{{ post.content }}</div>
@@ -45,6 +45,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { api } from '@/api'
 import AppIcon from '@/components/AppIcon.vue'
+import { resolveAssetUrl } from '@/utils/asset'
 
 const route = useRoute()
 const post = ref(null)
@@ -66,7 +67,7 @@ function maskPhone(phone) {
 }
 
 function previewImage(src) {
-  window.open(src, '_blank')
+  window.open(resolveAssetUrl(src), '_blank')
 }
 
 onMounted(async () => {

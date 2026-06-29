@@ -1,0 +1,6 @@
+name = "publicidad"
+pages_build_output_dir = "dist"
+compatibility_date = "2024-06-01"
+
+[vars]
+API_ORIGIN = "https://www.vecino.com.ve/publicidad/api/index.php"
