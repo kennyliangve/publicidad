@@ -49,26 +49,16 @@
       </div>
     </div>
 
-    <!-- 移动端 -->
+    <!-- 移动端：仅 Logo，搜索在首页内容区 -->
     <div class="header-mobile hide-desktop">
-      <div class="container header-mobile-inner">
+      <div class="header-mobile-inner">
         <router-link to="/" class="logo-mobile">
-          <img v-if="logoSrc" :src="logoSrc" :alt="siteStore.siteName" class="logo-img-mobile" />
-          <AppIcon v-else name="home" :size="22" />
-          <span>{{ siteStore.siteName }}</span>
+          <span class="logo-mobile-mark">
+            <img v-if="logoSrc" :src="logoSrc" :alt="siteStore.siteName" class="logo-img-mobile" />
+            <AppIcon v-else name="home" :size="20" />
+          </span>
+          <span class="logo-mobile-text">{{ siteStore.siteName }}</span>
         </router-link>
-        <form class="mobile-search-form" @submit.prevent="submitSearch">
-          <AppIcon name="search" :size="16" class="mobile-search-icon" />
-          <input
-            v-model="searchKeyword"
-            type="search"
-            class="mobile-search-input"
-            placeholder="搜索..."
-            enterkeyhint="search"
-            autocomplete="off"
-            maxlength="100"
-          />
-        </form>
       </div>
     </div>
   </header>
@@ -356,69 +346,59 @@ function submitSearch() {
 /* ===== 移动端 ===== */
 .header-mobile {
   background: var(--primary);
+  padding-top: env(safe-area-inset-top, 0px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .header-mobile-inner {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
   height: var(--header-h);
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 16px;
 }
 
 .logo-mobile {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 17px;
-  font-weight: 800;
-  color: var(--black);
   flex-shrink: 0;
-  max-width: 42%;
+  min-width: 0;
+  max-width: 100%;
 }
 
-.logo-mobile span {
+.logo-mobile-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--black);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.1);
+}
+
+.logo-mobile .logo-img-mobile {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+  padding: 3px;
+  background: transparent;
+}
+
+.logo-mobile-text {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--black);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.mobile-search-form {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 12px;
-  background: var(--white);
-  border: 2px solid var(--black);
-  border-radius: 18px;
-}
-
-.mobile-search-icon {
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.mobile-search-input {
-  flex: 1;
-  min-width: 0;
-  border: none;
-  background: transparent;
-  font-size: 14px;
-  color: var(--text);
-  padding: 0;
-}
-
-.mobile-search-input::placeholder {
-  color: var(--text-muted);
-}
-
-.mobile-search-input:focus {
-  outline: none;
-}
-
-.mobile-search-input::-webkit-search-cancel-button {
-  -webkit-appearance: none;
+  line-height: 1.2;
 }
 </style>

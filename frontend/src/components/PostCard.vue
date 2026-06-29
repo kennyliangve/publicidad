@@ -2,6 +2,7 @@
   <router-link :to="`/post/${post.id}`" class="post-card">
     <div class="post-card-preview">
       <span v-if="post.category_name" class="preview-category">{{ post.category_name }}</span>
+      <span v-if="post.is_top" class="preview-top">置顶</span>
       <p class="preview-text">{{ contentExcerpt }}</p>
     </div>
     <div class="post-card-body">
@@ -85,6 +86,18 @@ function formatTime(dateStr) {
   color: #665500;
   font-size: 11px;
   font-weight: 600;
+}
+
+.preview-top {
+  display: inline-block;
+  margin-left: 6px;
+  margin-bottom: 8px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--black);
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .preview-text {

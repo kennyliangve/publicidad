@@ -83,7 +83,7 @@ const routes = [
         meta: { title: '详情' },
       },
       {
-        path: 'publish',
+        path: 'publish/:id?',
         name: 'Publish',
         component: () => import('@/views/Publish.vue'),
         meta: { title: '发布信息', auth: true },

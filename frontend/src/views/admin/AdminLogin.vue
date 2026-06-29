@@ -41,7 +41,6 @@
               autocomplete="username"
             />
           </div>
-          <p v-if="!isEmail" class="field-hint">{{ phoneHint }}</p>
         </div>
 
         <div class="form-group">
@@ -82,7 +81,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { api } from '@/api'
 import { isStaff } from '@/utils/roles'
-import { normalizeLoginAccount, PHONE_HINT } from '@/utils/phone'
+import { normalizeLoginAccount } from '@/utils/phone'
 import AppIcon from '@/components/AppIcon.vue'
 import PhoneInput from '@/components/PhoneInput.vue'
 
@@ -103,8 +102,6 @@ const installUrl = import.meta.env.PROD
 
 const isEmail = computed(() => form.value.account.includes('@'))
 const accountIcon = computed(() => (isEmail.value ? 'mail' : 'phone'))
-const phoneHint = PHONE_HINT
-
 onMounted(() => {
   if (route.query.error === 'forbidden') {
     errorMsg.value = '当前账号无管理员权限，请使用管理员账号登录'

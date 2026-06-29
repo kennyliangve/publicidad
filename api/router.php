@@ -7,6 +7,11 @@ require_once __DIR__ . '/helpers.php';
 
 corsHeaders();
 
+require_once __DIR__ . '/helpers/vip.php';
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'OPTIONS') {
+    expireVipUsers(Database::getConnection());
+}
+
 $segments = parseApiUri() ? explode('/', parseApiUri()) : [];
 
 $method = $_SERVER['REQUEST_METHOD'];

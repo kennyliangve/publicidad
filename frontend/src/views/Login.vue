@@ -30,7 +30,6 @@
                 autocomplete="username"
               />
             </div>
-            <p v-if="!isEmail" class="field-hint">{{ phoneHint }}</p>
           </div>
 
           <div class="form-group">
@@ -88,7 +87,7 @@ import { useSiteStore } from '@/stores/site'
 import { api } from '@/api'
 import AppIcon from '@/components/AppIcon.vue'
 import PhoneInput from '@/components/PhoneInput.vue'
-import { normalizeLoginAccount, PHONE_HINT } from '@/utils/phone'
+import { normalizeLoginAccount } from '@/utils/phone'
 
 const router = useRouter()
 const route = useRoute()
@@ -103,8 +102,6 @@ const form = ref({ account: '', password: '' })
 
 const isEmail = computed(() => form.value.account.includes('@'))
 const accountIcon = computed(() => (isEmail.value ? 'mail' : 'phone'))
-const phoneHint = PHONE_HINT
-
 onMounted(() => {
   if (route.query.error === 'register_disabled') {
     errorMsg.value = '当前已关闭用户注册'

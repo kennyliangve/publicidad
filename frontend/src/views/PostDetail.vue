@@ -11,28 +11,6 @@
     <template v-else>
       <div class="container detail-layout">
         <article class="detail-main">
-          <!-- 图片画廊 -->
-          <div v-if="post.images?.length" class="gallery card">
-            <div class="gallery-main" @click="openLightbox(activeImage)">
-              <img :src="resolveAssetUrl(post.images[activeImage])" :alt="post.title" />
-              <span v-if="post.images.length > 1" class="gallery-counter">
-                {{ activeImage + 1 }} / {{ post.images.length }}
-              </span>
-            </div>
-            <div v-if="post.images.length > 1" class="gallery-thumbs">
-              <button
-                v-for="(img, i) in post.images"
-                :key="i"
-                type="button"
-                class="thumb-btn"
-                :class="{ active: activeImage === i }"
-                @click="activeImage = i"
-              >
-                <img :src="resolveAssetUrl(img)" :alt="`${post.title} ${i + 1}`" />
-              </button>
-            </div>
-          </div>
-
           <div class="detail-card card">
             <router-link
               v-if="post.category_id"
@@ -74,6 +52,30 @@
               <div class="detail-content">{{ post.content }}</div>
             </section>
 
+            <section v-if="post.images?.length" class="gallery-section">
+              <h2 class="section-title">图片</h2>
+              <div class="gallery">
+                <div class="gallery-main" @click="openLightbox(activeImage)">
+                  <img :src="resolveAssetUrl(post.images[activeImage])" :alt="post.title" />
+                  <span v-if="post.images.length > 1" class="gallery-counter">
+                    {{ activeImage + 1 }} / {{ post.images.length }}
+                  </span>
+                </div>
+                <div v-if="post.images.length > 1" class="gallery-thumbs">
+                  <button
+                    v-for="(img, i) in post.images"
+                    :key="i"
+                    type="button"
+                    class="thumb-btn"
+                    :class="{ active: activeImage === i }"
+                    @click="activeImage = i"
+                  >
+                    <img :src="resolveAssetUrl(img)" :alt="`${post.title} ${i + 1}`" />
+                  </button>
+                </div>
+              </div>
+            </section>
+
             <section v-if="post.address || regionText" class="location-section">
               <h2 class="section-title">位置信息</h2>
               <div class="location-card">
@@ -101,9 +103,16 @@
               <div class="contact-body">
                 <div class="contact-label">联系人</div>
                 <div class="contact-name">{{ post.contact_name || post.username || '联系人' }}</div>
-                <div class="contact-phone">{{ showPhone ? post.contact_phone : maskPhone(post.contact_phone) }}</div>
+                <div v-if="post.contact_phone" class="contact-phone">
+                  {{ showPhone ? post.contact_phone : maskPhone(post.contact_phone) }}
+                </div>
+                <div v-if="post.contact_wechat" class="contact-wechat">
+                  <span class="wechat-label">微信号</span>
+                  <span class="wechat-id">{{ post.contact_wechat }}</span>
+                  <button type="button" class="wechat-copy" @click="copyWechat">复制</button>
+                </div>
               </div>
-              <div class="contact-actions">
+              <div v-if="post.contact_phone" class="contact-actions">
                 <button type="button" class="btn btn-outline btn-sm" @click="copyPhone">复制号码</button>
                 <button type="button" class="btn btn-primary btn-sm contact-btn" @click="revealOrCall">
                   <AppIcon name="phone" :size="16" />
@@ -167,7 +176,10 @@
       <div class="contact-bar card">
         <div class="bar-info">
           <div class="bar-name">{{ post.contact_name || post.username || '联系人' }}</div>
-          <div class="bar-phone">{{ showPhone ? post.contact_phone : maskPhone(post.contact_phone) }}</div>
+          <div v-if="post.contact_phone" class="bar-phone">
+            {{ showPhone ? post.contact_phone : maskPhone(post.contact_phone) }}
+          </div>
+          <div v-if="post.contact_wechat" class="bar-wechat">微信：{{ post.contact_wechat }}</div>
         </div>
         <div class="bar-actions">
           <a
@@ -180,11 +192,14 @@
           >
             <AppIcon name="message-circle" :size="16" />
           </a>
-          <button type="button" class="btn btn-outline btn-sm" @click="copyPhone">复制</button>
-          <button type="button" class="btn btn-primary btn-sm contact-btn" @click="revealOrCall">
-            <AppIcon name="phone" :size="16" />
-            {{ showPhone ? '拨打' : '查看电话' }}
-          </button>
+          <button v-if="post.contact_wechat && !post.contact_phone" type="button" class="btn btn-outline btn-sm" @click="copyWechat">复制微信</button>
+          <template v-if="post.contact_phone">
+            <button type="button" class="btn btn-outline btn-sm" @click="copyPhone">复制</button>
+            <button type="button" class="btn btn-primary btn-sm contact-btn" @click="revealOrCall">
+              <AppIcon name="phone" :size="16" />
+              {{ showPhone ? '拨打' : '查看电话' }}
+            </button>
+          </template>
         </div>
       </div>
     </template>
@@ -302,6 +317,10 @@ function copyPhone() {
     showPhone.value = true
   }
   copyText(post.value?.contact_phone, '号码已复制')
+}
+
+function copyWechat() {
+  copyText(post.value?.contact_wechat, '微信号已复制')
 }
 
 function revealOrCall() {
@@ -602,6 +621,17 @@ onUnmounted(() => {
   word-break: break-word;
 }
 
+.gallery-section {
+  margin-bottom: 20px;
+}
+
+.gallery-section .gallery {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: #fafafa;
+}
+
 .location-section { margin-bottom: 16px; }
 
 .location-card {
@@ -634,6 +664,8 @@ onUnmounted(() => {
 .contact-panel {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  text-align: center;
   gap: 14px;
 }
 
@@ -646,6 +678,11 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   color: #665500;
+  flex-shrink: 0;
+}
+
+.contact-body {
+  width: 100%;
 }
 
 .contact-label {
@@ -666,9 +703,46 @@ onUnmounted(() => {
   letter-spacing: 0.5px;
 }
 
+.contact-wechat {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+.wechat-label {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.wechat-id {
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+
+.wechat-copy {
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: #fff;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.wechat-copy:hover {
+  border-color: var(--black);
+  color: var(--black);
+}
+
 .contact-actions {
   display: flex;
   gap: 8px;
+  width: 100%;
+  justify-content: center;
 }
 
 .contact-btn {
@@ -798,6 +872,7 @@ onUnmounted(() => {
 
 .bar-name { font-size: 14px; font-weight: 600; }
 .bar-phone { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.bar-wechat { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 .bar-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
 /* 灯箱 */

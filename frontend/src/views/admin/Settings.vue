@@ -75,7 +75,7 @@
             rows="3"
           />
           <p class="field-hint">键名: {{ key }}</p>
-          <p v-if="key === 'contact_phone'" class="field-hint">委内瑞拉格式：0412-0000000（留空则不显示）</p>
+          <p v-if="key === 'contact_phone'" class="field-hint">留空则不显示</p>
         </div>
 
         <button type="submit" class="btn btn-primary" :disabled="saving">

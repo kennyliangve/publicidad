@@ -17,8 +17,34 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">货币</label>
-          <input v-model="vipForm.vip_plan_currency" class="form-input" maxlength="8" />
+          <label class="form-label">定价货币</label>
+          <input class="form-input" value="USD（美元）" disabled />
+          <p class="field-hint">套餐以美元定价，Bs 金额按 BCV 官方汇率当日自动折算</p>
+        </div>
+
+        <div class="bcv-banner">
+          <div class="bcv-row">
+            <span class="bcv-label">BCV 官方汇率（今日）</span>
+            <strong>1 USD = {{ formatRate(bcv.rate) }} Bs</strong>
+          </div>
+          <p class="field-hint">
+            生效日 {{ bcv.effective_date || '—' }}
+            · 来源 {{ bcvSourceLabel(bcv.source) }}
+            <span v-if="bcv.stale" class="stale-tag">（缓存）</span>
+          </p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">手动 BCV 汇率（可选）</label>
+          <input
+            v-model="vipForm.bcv_usd_rate_manual"
+            class="form-input"
+            type="number"
+            step="0.000001"
+            min="0"
+            placeholder="留空则自动从 BCV 获取"
+          />
+          <p class="field-hint">仅当自动获取失败或需固定汇率时填写，单位：Bs / 1 USD</p>
         </div>
 
         <div class="form-group">
@@ -91,7 +117,7 @@
         <div class="section-head plans-head">
           <div>
             <h3>VIP 套餐</h3>
-            <p>可配置多个套餐，分别设定金额与有效天数；到期后用户自动恢复为普通用户</p>
+            <p>套餐以美元 (USD) 定价，Bs 收款金额按委内瑞拉 BCV 当日官方汇率自动折算</p>
           </div>
           <button type="button" class="btn btn-outline btn-sm" @click="openPlanForm()">添加套餐</button>
         </div>
@@ -102,7 +128,8 @@
           <thead>
             <tr>
               <th>名称</th>
-              <th>金额 (Bs)</th>
+              <th>USD</th>
+              <th>Bs（今日 BCV）</th>
               <th>有效天数</th>
               <th>排序</th>
               <th>状态</th>
@@ -112,7 +139,8 @@
           <tbody>
             <tr v-for="plan in plans" :key="plan.id">
               <td>{{ plan.name }}</td>
-              <td>{{ formatAmount(plan.amount) }}</td>
+              <td>${{ formatUsdAmount(plan.amount_usd) }}</td>
+              <td>Bs {{ formatBsAmount(plan.amount_ves) }}</td>
               <td>{{ plan.duration_days }} 天（{{ plan.duration_label }}）</td>
               <td>{{ plan.sort_order ?? 0 }}</td>
               <td>
@@ -138,8 +166,11 @@
           </div>
           <div class="form-row-2">
             <div class="form-group">
-              <label class="form-label">金额 (Bs)</label>
-              <input v-model="planForm.amount" class="form-input" type="number" step="0.01" min="0.01" required />
+              <label class="form-label">金额 (USD)</label>
+              <input v-model="planForm.amount_usd" class="form-input" type="number" step="0.01" min="0.01" required />
+              <p v-if="planForm.amount_usd" class="field-hint">
+                约合 Bs {{ previewVes(planForm.amount_usd) }}（按当前 BCV {{ formatRate(bcv.rate) }}）
+              </p>
             </div>
             <div class="form-group">
               <label class="form-label">有效天数</label>
@@ -174,6 +205,7 @@
 import { ref, inject, onMounted } from 'vue'
 import { adminApi } from '@/api/admin'
 import { useSiteStore } from '@/stores/site'
+import { formatBsAmount, formatUsdAmount } from '@/utils/money'
 
 const showToast = inject('showToast')
 const siteStore = useSiteStore()
@@ -188,8 +220,9 @@ const planModalOpen = ref(false)
 const planSaving = ref(false)
 const editingPlan = ref(null)
 
+const bcv = ref({ rate: 0, effective_date: '', source: '', stale: false })
+
 const VIP_SETTING_KEYS = [
-  'vip_plan_currency',
   'vip_merchant_phone',
   'vip_merchant_rif',
   'vip_merchant_bank_code',
@@ -197,10 +230,10 @@ const VIP_SETTING_KEYS = [
   'bank_api_endpoint',
   'bank_api_endpoint_sandbox',
   'bank_auth_type',
+  'bcv_usd_rate_manual',
 ]
 
 const vipForm = ref({
-  vip_plan_currency: 'VES',
   vip_merchant_phone: '',
   vip_merchant_rif: '',
   vip_merchant_bank_code: '0102',
@@ -208,23 +241,43 @@ const vipForm = ref({
   bank_api_endpoint: 'https://bdvconciliacion.banvenez.com:443/api/consulta/consultaMultiple',
   bank_api_endpoint_sandbox: 'https://bdvconciliacion.banvenez.com:443/api/consulta/consultaMultiple',
   bank_auth_type: 'x_api_key',
+  bcv_usd_rate_manual: '',
 })
 
 const planForm = ref({
   name: '',
-  amount: '',
+  amount_usd: '',
   duration_days: 30,
   sort_order: 0,
   enabled: true,
 })
 
-function formatAmount(value) {
-  return Number(value || 0).toFixed(2)
+function formatRate(value) {
+  const n = Number(value || 0)
+  return n > 0 ? n.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : '—'
+}
+
+function bcvSourceLabel(source) {
+  const map = {
+    manual: '手动设置',
+    'bcv.today': 'BCV Today',
+    'bcv-exchange-rates': 'BCV Exchange Rates',
+    cache: '缓存',
+    bcv: 'BCV',
+  }
+  return map[source] || source || '—'
+}
+
+function previewVes(usd) {
+  const rate = Number(bcv.value.rate || 0)
+  if (!usd || !rate) return '—'
+  return formatBsAmount(Number(usd) * rate)
 }
 
 async function loadPlans() {
   const data = await adminApi.getVipPlans()
   plans.value = data.list || []
+  bcv.value = data.bcv || { rate: 0 }
 }
 
 async function load() {
@@ -254,12 +307,14 @@ async function save() {
   try {
     const settings = await adminApi.updateSettings({
       ...vipForm.value,
+      vip_plan_currency: 'USD',
       vip_upgrade_enabled: vipEnabled.value ? '1' : '0',
       ...(bankApiToken.value.trim() ? { bank_api_token: bankApiToken.value.trim() } : {}),
     })
     bankApiToken.value = ''
     bankTokenConfigured.value = !!settings.bank_api_token?.configured
     showToast('设置已保存')
+    await loadPlans()
     await siteStore.reload()
   } catch (e) {
     showToast(e.message)
@@ -273,7 +328,7 @@ function openPlanForm(plan = null) {
   if (plan) {
     planForm.value = {
       name: plan.name,
-      amount: String(plan.amount),
+      amount_usd: String(plan.amount_usd ?? plan.amount ?? ''),
       duration_days: plan.duration_days,
       sort_order: plan.sort_order ?? 0,
       enabled: plan.enabled === 1 || plan.enabled === true,
@@ -281,7 +336,7 @@ function openPlanForm(plan = null) {
   } else {
     planForm.value = {
       name: '',
-      amount: '',
+      amount_usd: '',
       duration_days: 30,
       sort_order: plans.value.length,
       enabled: true,
@@ -300,7 +355,7 @@ async function savePlan() {
   try {
     const payload = {
       name: planForm.value.name.trim(),
-      amount: Number(planForm.value.amount),
+      amount_usd: Number(planForm.value.amount_usd),
       duration_days: Number(planForm.value.duration_days),
       sort_order: Number(planForm.value.sort_order) || 0,
       enabled: planForm.value.enabled ? 1 : 0,
@@ -401,6 +456,30 @@ onMounted(load)
   font-size: 12px;
   color: var(--text-muted);
   margin-top: 4px;
+}
+
+.bcv-banner {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+
+.bcv-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  font-size: 14px;
+}
+
+.bcv-label {
+  color: var(--text-muted);
+}
+
+.stale-tag {
+  color: #b45309;
 }
 
 .empty-plans {

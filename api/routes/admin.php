@@ -379,7 +379,10 @@ function handleAdminSettings(PDO $db, string $method): void
 function handleAdminVipPlans(PDO $db, string $method, ?string $id): void
 {
     if ($method === 'GET' && !$id) {
-        jsonSuccess(['list' => getAllVipPlans($db)]);
+        jsonSuccess([
+            'list' => getAllVipPlans($db),
+            'bcv'  => formatBcvRatePublic(getBcvUsdRate($db)),
+        ]);
         return;
     }
 

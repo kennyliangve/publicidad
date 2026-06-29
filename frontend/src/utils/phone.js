@@ -1,7 +1,6 @@
 /** 委内瑞拉电话：0412-0000000（11 位，02XX 固话 / 04XX 手机） */
 
 export const PHONE_PLACEHOLDER = '0412-0000000'
-export const PHONE_HINT = '格式：0412-0000000（11 位，可含一个连字符）'
 
 /** 输入时格式化为 XXXX-XXXXXXX */
 export function formatPhoneAsYouType(value) {

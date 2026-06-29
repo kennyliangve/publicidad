@@ -51,7 +51,6 @@
               />
             </div>
             <p v-if="phoneError" class="field-error">{{ phoneError }}</p>
-            <p v-else class="field-hint">{{ phoneHint }}</p>
           </div>
 
           <div class="form-row">
@@ -121,7 +120,7 @@ import { useSiteStore } from '@/stores/site'
 import { api } from '@/api'
 import AppIcon from '@/components/AppIcon.vue'
 import PhoneInput from '@/components/PhoneInput.vue'
-import { validatePhoneMessage, normalizeVenezuelaPhone, PHONE_HINT } from '@/utils/phone'
+import { validatePhoneMessage, normalizeVenezuelaPhone } from '@/utils/phone'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -132,7 +131,6 @@ const loading = ref(false)
 const showPwd = ref(false)
 const emailError = ref('')
 const phoneError = ref('')
-const phoneHint = PHONE_HINT
 const form = ref({
   username: '',
   email: '',

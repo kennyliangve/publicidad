@@ -40,9 +40,12 @@ export const api = {
     return request(`/posts?${qs}`)
   },
   getPost: (id) => request(`/posts/${id}`),
+  getPostForEdit: (id) => request(`/posts/${id}/edit`),
   getMyPosts: (page = 1) => request(`/posts/my?page=${page}`),
   createPost: (data) => request('/posts', { method: 'POST', body: JSON.stringify(data) }),
+  updatePost: (id, data) => request(`/posts/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deletePost: (id) => request(`/posts/${id}`, { method: 'DELETE' }),
+  pinPost: (id, isTop) => request(`/posts/${id}/pin`, { method: 'PUT', body: JSON.stringify({ is_top: isTop ? 1 : 0 }) }),
   login: (data) => request('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
   register: (data) => request('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
   getProfile: () => request('/auth/profile'),

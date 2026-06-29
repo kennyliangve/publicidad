@@ -20,9 +20,16 @@
       <div class="upgrade-header">
         <h1>{{ isActiveVipUser ? 'VIP 续费' : '升级 VIP' }}</h1>
         <p class="subtitle">
-          {{ isActiveVipUser
-            ? `当前 VIP 有效期至 ${formatDateTime(userStore.user?.vip_expires_at)}，续费将从当前到期日顺延`
-            : '选择套餐并完成付款验证，即可上传图片发布信息' }}
+          <template v-if="isActiveVipUser">
+            当前 VIP 有效期至 {{ formatDateTime(userStore.user?.vip_expires_at) }}，续费将从当前到期日顺延
+          </template>
+          <template v-else>
+            选择套餐并完成 Pago Móvil 付款验证，即可上传图片发布信息
+          </template>
+        </p>
+        <p v-if="plan.bcv?.rate" class="bcv-note">
+          今日 BCV 官方汇率：1 USD = {{ formatRate(plan.bcv.rate) }} Bs
+          <span v-if="plan.bcv.effective_date">（生效 {{ plan.bcv.effective_date }}）</span>
         </p>
       </div>
 
@@ -43,8 +50,8 @@
                 <span class="plan-duration">{{ item.duration_label }}</span>
               </div>
               <div class="plan-option-price">
-                <span class="currency">{{ plan.currency || 'VES' }}</span>
-                <span class="amount">{{ formatAmount(item.amount) }}</span>
+                <span class="usd-price">${{ formatUsdAmount(item.amount_usd) }}</span>
+                <span class="ves-price">Bs {{ formatBsAmount(item.amount_ves) }}</span>
               </div>
             </button>
           </div>
@@ -70,10 +77,23 @@
               <span class="label">RIF</span>
               <span>{{ plan.merchant_rif || '待配置' }}</span>
             </div>
+            <div class="info-row amount-row">
+              <span class="label">付款金额</span>
+              <span class="pay-amount">Bs {{ formatBsAmount(selectedPlan?.amount_ves) }}</span>
+            </div>
+            <button
+              type="button"
+              class="btn btn-outline btn-sm copy-pay-btn"
+              :disabled="!canCopyPaymentInfo"
+              @click="copyPaymentInfo"
+            >
+              <AppIcon name="copy" :size="16" />
+              复制收款信息
+            </button>
           </div>
 
           <ol class="steps">
-            <li>向以上账号完成 Pago Móvil 转账，金额为 <strong>Bs {{ formatAmount(selectedPlan?.amount) }}</strong></li>
+            <li>向以上账号完成 Pago Móvil 转账（金额见上方收款信息）</li>
             <li>保存银行参考号最后 6 位、付款日期等信息</li>
             <li>在右侧填写并提交验证</li>
           </ol>
@@ -121,7 +141,7 @@
               <div class="form-group flex-1">
                 <label class="form-label">付款金额 (Bs)</label>
                 <div class="amount-locked">
-                  <span class="amount-value">{{ formatAmount(selectedPlan?.amount) }}</span>
+                  <span class="amount-value">Bs {{ formatBsAmount(selectedPlan?.amount_ves) }}</span>
                   <AppIcon name="lock" :size="16" class="lock-icon" />
                 </div>
               </div>
@@ -146,6 +166,7 @@ import { isStaff, isActiveVip } from '@/utils/roles'
 import AppIcon from '@/components/AppIcon.vue'
 import PhoneInput from '@/components/PhoneInput.vue'
 import { getVenezuelaTodayIsoDate } from '@/utils/phone'
+import { formatBsAmount, formatUsdAmount, formatPlainAmount } from '@/utils/money'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -157,7 +178,8 @@ const errorMsg = ref('')
 const selectedPlanId = ref(null)
 const plan = ref({
   enabled: false,
-  currency: 'VES',
+  currency: 'USD',
+  bcv: null,
   merchant_phone: '',
   merchant_rif: '',
   merchant_bank: '',
@@ -200,8 +222,52 @@ const isStaffUser = computed(() => isStaff(userStore.user?.role))
 const isActiveVipUser = computed(() => isActiveVip(userStore.user))
 const selectedPlan = computed(() => plan.value.plans.find(p => p.id === selectedPlanId.value) || null)
 
-function formatAmount(value) {
-  return Number(value || 0).toFixed(2)
+const canCopyPaymentInfo = computed(() => {
+  if (!selectedPlan.value?.amount_ves) return false
+  const bank = normalizeCopyBank(plan.value.merchant_bank)
+  const phone = normalizeCopyPhone(plan.value.merchant_phone)
+  const rif = normalizeCopyRif(plan.value.merchant_rif)
+  return !!(bank && phone && rif)
+})
+
+function normalizeCopyBank(value) {
+  const digits = String(value || '').replace(/\D/g, '')
+  return digits.length >= 4 ? digits.slice(0, 4) : digits
+}
+
+function normalizeCopyPhone(value) {
+  return String(value || '').replace(/\D/g, '')
+}
+
+function normalizeCopyRif(value) {
+  return String(value || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
+}
+
+function buildPaymentCopyText() {
+  const bank = normalizeCopyBank(plan.value.merchant_bank)
+  const phone = normalizeCopyPhone(plan.value.merchant_phone)
+  const rif = normalizeCopyRif(plan.value.merchant_rif)
+  const amount = formatPlainAmount(selectedPlan.value?.amount_ves)
+  return [bank, phone, rif, amount].join('\n')
+}
+
+async function copyPaymentInfo() {
+  if (!canCopyPaymentInfo.value) {
+    showToast('收款信息未配置完整')
+    return
+  }
+  const text = buildPaymentCopyText()
+  try {
+    await navigator.clipboard.writeText(text)
+    showToast('收款信息已复制')
+  } catch {
+    showToast('复制失败，请手动复制')
+  }
+}
+
+function formatRate(value) {
+  const n = Number(value || 0)
+  return n > 0 ? n.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : '—'
 }
 
 function formatDateTime(dateStr) {
@@ -275,6 +341,16 @@ onMounted(loadPlan)
   font-size: 14px;
 }
 
+.bcv-note {
+  font-size: 13px;
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-top: 10px;
+}
+
 .upgrade-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -334,18 +410,20 @@ onMounted(loadPlan)
 .plan-option-price {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-.plan-option-price .currency {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.plan-option-price .amount {
-  font-size: 22px;
+.plan-option-price .usd-price {
+  font-size: 20px;
   font-weight: 800;
   color: var(--primary);
+}
+
+.plan-option-price .ves-price {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 600;
 }
 
 .benefits {
@@ -387,6 +465,31 @@ onMounted(loadPlan)
 
 .info-row .label {
   color: var(--text-muted);
+}
+
+.amount-row {
+  border-top: 1px dashed var(--border);
+  margin-top: 6px;
+  padding-top: 10px;
+}
+
+.pay-amount {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.copy-pay-btn {
+  width: 100%;
+  margin-top: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.copy-pay-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .steps {

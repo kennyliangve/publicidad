@@ -123,10 +123,7 @@
             <span v-if="keyword.trim()"> · 「{{ keyword.trim() }}」</span>
           </div>
 
-          <div class="post-list hide-desktop card">
-            <PostItem v-for="post in posts" :key="post.id" :post="post" />
-          </div>
-          <div class="post-grid hide-mobile">
+          <div class="post-grid">
             <PostCard v-for="post in posts" :key="post.id" :post="post" />
           </div>
 
@@ -146,7 +143,6 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/api'
 import { useSiteStore } from '@/stores/site'
-import PostItem from '@/components/PostItem.vue'
 import PostCard from '@/components/PostCard.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import { getCategoryIcon } from '@/utils/categoryIcons'
@@ -371,31 +367,24 @@ onMounted(initPage)
 }
 
 .category-grid {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px 4px;
   background: var(--white);
   border-radius: var(--radius);
   padding: 14px 12px;
   box-shadow: var(--shadow);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.category-grid::-webkit-scrollbar {
-  display: none;
 }
 
 .category-item {
-  flex: 0 0 auto;
-  min-width: 68px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: 8px 4px;
+  padding: 8px 2px;
   border-radius: 8px;
   transition: background 0.15s;
+  min-width: 0;
 }
 
 .category-item.active {
@@ -422,25 +411,36 @@ onMounted(initPage)
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 72px;
+  max-width: 100%;
   line-height: 1.3;
 }
 
 @media (min-width: 769px) {
   .category-grid {
+    display: flex;
+    flex-wrap: nowrap;
     gap: 12px;
     padding: 16px;
-    overflow-x: visible;
   }
 
   .category-item {
     flex: 1 1 0;
-    min-width: 0;
+    padding: 8px 4px;
   }
 
   .cat-name {
     font-size: 13px;
-    max-width: 100%;
+  }
+}
+
+@media (max-width: 360px) {
+  .category-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px 4px;
+  }
+
+  .cat-name {
+    font-size: 11px;
   }
 }
 
@@ -618,14 +618,17 @@ onMounted(initPage)
   margin-bottom: 12px;
 }
 
-.post-list {
-  overflow: hidden;
-}
-
 .post-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+@media (min-width: 769px) {
+  .post-grid {
+    gap: 16px;
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 @media (min-width: 769px) and (max-width: 1200px) {

@@ -79,6 +79,12 @@ function requireAuth(): int
     return $userId;
 }
 
+/** 当前登录用户的内部 ID（JWT token，与 users.id 主键一致） */
+function getAuthUserId(): int
+{
+    return requireAuth();
+}
+
 function corsHeaders(): void
 {
     $config = require __DIR__ . '/config.php';

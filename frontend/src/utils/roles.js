@@ -89,6 +89,10 @@ export function assignableRoles(actorRole) {
   )
 }
 
+export function canPinPosts(user) {
+  return canUploadPostImages(user?.role, user)
+}
+
 export function canUploadPostImages(role, user = null) {
   if (isStaff(role)) return true
   if (!isVip(role)) return false
@@ -98,9 +102,7 @@ export function canUploadPostImages(role, user = null) {
 
 export function hasEnabledVipPlans(vipUpgrade) {
   if (!vipUpgrade?.enabled) return false
-  const plans = vipUpgrade.plans
-  if (Array.isArray(plans) && plans.length > 0) return true
-  return Number(vipUpgrade.amount || 0) > 0
+  return Array.isArray(vipUpgrade.plans) && vipUpgrade.plans.length > 0
 }
 
 export function canModifyUser(actorRole, targetRole) {

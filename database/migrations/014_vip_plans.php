@@ -44,8 +44,8 @@ return [
             $stmt = $db->prepare(
                 'INSERT INTO vip_plans (name, amount, duration_days, sort_order, enabled) VALUES (?, ?, ?, ?, 1)'
             );
-            $stmt->execute(['VIP 月卡', $amount, 30, 1]);
-            $stmt->execute(['VIP 季卡', round($amount * 2.5, 2), 90, 2]);
+            $stmt->execute(['VIP 月卡', 1.00, 30, 1]);
+            $stmt->execute(['VIP 季卡', 2.50, 90, 2]);
         }
     },
 ];

@@ -3,6 +3,7 @@
 require_once __DIR__ . '/settings.php';
 require_once __DIR__ . '/user.php';
 require_once __DIR__ . '/phone.php';
+require_once __DIR__ . '/bcv.php';
 
 const VIP_PAYMENT_VERIFIED = 1;
 const VIP_PAYMENT_FAILED   = 2;
@@ -39,25 +40,48 @@ function usersHasVipExpiresColumn(PDO $db): bool
     return $has;
 }
 
-/** 将已过期的 VIP 降级为普通用户 */
+/** 将已过期的 VIP 降级为普通用户，并取消其全部置顶 */
 function expireVipUsers(PDO $db, ?int $userId = null): int
 {
-    if (!usersHasVipExpiresColumn($db)) {
-        return 0;
+    require_once __DIR__ . '/post.php';
+
+    $count = 0;
+
+    if (usersHasVipExpiresColumn($db)) {
+        $findSql = 'SELECT id FROM users WHERE role = ? AND vip_expires_at IS NOT NULL AND vip_expires_at < NOW()';
+        $findParams = [USER_ROLE_VIP];
+        if ($userId !== null) {
+            $findSql .= ' AND id = ?';
+            $findParams[] = $userId;
+        }
+
+        $stmt = $db->prepare($findSql);
+        $stmt->execute($findParams);
+        $expiredIds = array_column($stmt->fetchAll(), 'id');
+
+        foreach ($expiredIds as $expiredId) {
+            clearUserPinnedPosts($db, (int)$expiredId);
+        }
+
+        if ($expiredIds) {
+            $sql = 'UPDATE users SET role = ?, vip_expires_at = NULL
+                    WHERE role = ? AND vip_expires_at IS NOT NULL AND vip_expires_at < NOW()';
+            $params = [USER_ROLE_NORMAL, USER_ROLE_VIP];
+
+            if ($userId !== null) {
+                $sql .= ' AND id = ?';
+                $params[] = $userId;
+            }
+
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            $count = $stmt->rowCount();
+        }
     }
 
-    $sql = 'UPDATE users SET role = ?, vip_expires_at = NULL
-            WHERE role = ? AND vip_expires_at IS NOT NULL AND vip_expires_at < NOW()';
-    $params = [USER_ROLE_NORMAL, USER_ROLE_VIP];
+    clearNormalUserPinnedPosts($db);
 
-    if ($userId !== null) {
-        $sql .= ' AND id = ?';
-        $params[] = $userId;
-    }
-
-    $stmt = $db->prepare($sql);
-    $stmt->execute($params);
-    return $stmt->rowCount();
+    return $count;
 }
 
 function userHasActiveVip(array $user): bool
@@ -72,13 +96,41 @@ function userHasActiveVip(array $user): bool
     return strtotime((string)$expires) >= time();
 }
 
-function formatVipPlanPublic(array $plan): array
+function vipPlanUsesAmountUsd(PDO $db): bool
+{
+    static $uses = null;
+    if ($uses !== null) {
+        return $uses;
+    }
+    try {
+        $uses = (bool)$db->query("SHOW COLUMNS FROM vip_plans LIKE 'amount_usd'")->fetch();
+    } catch (Throwable) {
+        $uses = false;
+    }
+    return $uses;
+}
+
+function vipPlanAmountUsd(array $plan): float
+{
+    if (isset($plan['amount_usd'])) {
+        return (float)$plan['amount_usd'];
+    }
+    return (float)($plan['amount'] ?? 0);
+}
+
+function formatVipPlanPublic(PDO $db, array $plan): array
 {
     $days = max(1, (int)($plan['duration_days'] ?? 30));
+    $usd = vipPlanAmountUsd($plan);
+    $bcv = getBcvUsdRate($db);
+    $ves = convertUsdToVes($usd, (float)$bcv['rate']);
+
     return [
         'id'             => (int)$plan['id'],
         'name'           => (string)$plan['name'],
-        'amount'         => (float)$plan['amount'],
+        'amount_usd'     => round($usd, 2),
+        'amount_ves'     => $ves,
+        'amount'         => $ves,
         'duration_days'  => $days,
         'duration_label' => vipDurationLabel($days),
         'sort_order'     => (int)($plan['sort_order'] ?? 0),
@@ -112,7 +164,8 @@ function getAllVipPlans(PDO $db, bool $enabledOnly = false): array
     $sql .= ' ORDER BY sort_order ASC, id ASC';
 
     $stmt = $db->query($sql);
-    return array_map('formatVipPlanPublic', $stmt->fetchAll() ?: []);
+    $rows = $stmt->fetchAll() ?: [];
+    return array_map(static fn(array $row) => formatVipPlanPublic($db, $row), $rows);
 }
 
 function findVipPlanById(PDO $db, int $planId, bool $enabledOnly = false): ?array
@@ -129,7 +182,7 @@ function findVipPlanById(PDO $db, int $planId, bool $enabledOnly = false): ?arra
     $stmt = $db->prepare($sql);
     $stmt->execute([$planId]);
     $row = $stmt->fetch();
-    return $row ? formatVipPlanPublic($row) : null;
+    return $row ? formatVipPlanPublic($db, $row) : null;
 }
 
 function getVipPlanRawById(PDO $db, int $planId): ?array
@@ -149,16 +202,21 @@ function getVipPlanPublic(PDO $db): array
     $enabled = getSetting($db, 'vip_upgrade_enabled', '1') !== '0';
     $plans = getAllVipPlans($db, true);
     $hasPlans = count($plans) > 0;
+    $bcv = getBcvUsdRate($db);
 
     return [
         'enabled'        => $enabled && $hasPlans,
-        'currency'       => (string)getSetting($db, 'vip_plan_currency', 'VES'),
+        'currency'       => (string)getSetting($db, 'vip_plan_currency', 'USD'),
+        'pricing_currency' => 'USD',
+        'payment_currency' => 'VES',
+        'bcv'            => formatBcvRatePublic($bcv),
         'merchant_phone' => (string)getSetting($db, 'vip_merchant_phone', ''),
         'merchant_rif'   => (string)getSetting($db, 'vip_merchant_rif', ''),
         'merchant_bank'  => (string)getSetting($db, 'vip_merchant_bank_code', '0102'),
         'plans'          => $plans,
         'benefits'       => [
             '发布信息时可上传图片',
+            '最多置顶 5 条信息',
             '信息展示更直观，提高曝光',
         ],
     ];
@@ -196,9 +254,11 @@ function normalizeVipPlanInput(array $body, ?array $existing = null): array
         jsonError('套餐名称过长');
     }
 
-    $amount = isset($body['amount']) ? (float)$body['amount'] : (float)($existing['amount'] ?? 0);
-    if ($amount <= 0) {
-        jsonError('套餐金额必须大于 0');
+    $amountUsd = isset($body['amount_usd'])
+        ? (float)$body['amount_usd']
+        : (isset($body['amount']) ? (float)$body['amount'] : (float)vipPlanAmountUsd($existing ?? []));
+    if ($amountUsd <= 0) {
+        jsonError('套餐金额 (USD) 必须大于 0');
     }
 
     $durationDays = isset($body['duration_days'])
@@ -218,7 +278,7 @@ function normalizeVipPlanInput(array $body, ?array $existing = null): array
 
     return [
         'name'          => $name,
-        'amount'        => round($amount, 2),
+        'amount_usd'    => round($amountUsd, 2),
         'duration_days' => $durationDays,
         'sort_order'    => $sortOrder,
         'enabled'       => $enabled ? 1 : 0,
@@ -232,12 +292,13 @@ function createVipPlan(PDO $db, array $body): array
     }
 
     $data = normalizeVipPlanInput($body);
+    $amountColumn = vipPlanUsesAmountUsd($db) ? 'amount_usd' : 'amount';
     $stmt = $db->prepare(
-        'INSERT INTO vip_plans (name, amount, duration_days, sort_order, enabled) VALUES (?, ?, ?, ?, ?)'
+        "INSERT INTO vip_plans (name, {$amountColumn}, duration_days, sort_order, enabled) VALUES (?, ?, ?, ?, ?)"
     );
     $stmt->execute([
         $data['name'],
-        $data['amount'],
+        $data['amount_usd'],
         $data['duration_days'],
         $data['sort_order'],
         $data['enabled'],
@@ -255,12 +316,13 @@ function updateVipPlan(PDO $db, int $planId, array $body): array
     }
 
     $data = normalizeVipPlanInput($body, $existing);
+    $amountColumn = vipPlanUsesAmountUsd($db) ? 'amount_usd' : 'amount';
     $stmt = $db->prepare(
-        'UPDATE vip_plans SET name = ?, amount = ?, duration_days = ?, sort_order = ?, enabled = ? WHERE id = ?'
+        "UPDATE vip_plans SET name = ?, {$amountColumn} = ?, duration_days = ?, sort_order = ?, enabled = ? WHERE id = ?"
     );
     $stmt->execute([
         $data['name'],
-        $data['amount'],
+        $data['amount_usd'],
         $data['duration_days'],
         $data['sort_order'],
         $data['enabled'],
@@ -596,7 +658,8 @@ function processVipPaymentVerification(PDO $db, array $user, array $body): array
     $payerPhone = trim($body['payer_phone'] ?? '');
     $payerBank = trim($body['payer_bank_code'] ?? '');
     $paymentDate = trim($body['payment_date'] ?? '');
-    $amount = (float)$plan['amount'];
+    $amountUsd = (float)$plan['amount_usd'];
+    $amountVes = (float)$plan['amount_ves'];
     $durationDays = (int)$plan['duration_days'];
 
     if (!$referenceRaw || !$payerPhone || !$payerBank || !$paymentDate) {
@@ -606,7 +669,7 @@ function processVipPaymentVerification(PDO $db, array $user, array $body): array
     $reference = normalizePaymentReference($referenceRaw);
     $paymentDateSql = normalizePaymentDateSql($paymentDate);
 
-    $referenceKey = buildVipReferenceKey($planId, $reference, $payerBank, $paymentDateSql, $amount);
+    $referenceKey = buildVipReferenceKey($planId, $reference, $payerBank, $paymentDateSql, $amountVes);
     if (isReferenceAlreadyUsed($db, $referenceKey)) {
         jsonError('该付款参考号已被使用，请勿重复提交');
     }
@@ -616,7 +679,7 @@ function processVipPaymentVerification(PDO $db, array $user, array $body): array
         'payer_phone'     => $payerPhone,
         'payer_bank_code' => $payerBank,
         'payment_date'    => $paymentDate,
-        'amount'          => $amount,
+        'amount'          => $amountVes,
     ];
 
     $bankResult = callBdvConsultaMultiple($db, $payment);
@@ -636,7 +699,7 @@ function processVipPaymentVerification(PDO $db, array $user, array $body): array
             'plan_id'          => $planId,
             'reference'        => $reference,
             'reference_key'    => $referenceKey,
-            'amount'           => $amount,
+            'amount'           => $amountVes,
             'payer_phone'      => normalizeTelefonoCliente($payerPhone),
             'payer_id_type'    => 'V',
             'payer_id_number'  => '',
@@ -644,9 +707,12 @@ function processVipPaymentVerification(PDO $db, array $user, array $body): array
             'payment_date'     => $paymentDateSql,
             'status'           => VIP_PAYMENT_VERIFIED,
             'bank_response'    => json_encode([
-                'response' => $bankResult['payload'] ?? [],
-                'matched'  => $bankResult['matched'] ?? null,
-                'plan_id'  => $planId,
+                'response'   => $bankResult['payload'] ?? [],
+                'matched'    => $bankResult['matched'] ?? null,
+                'plan_id'    => $planId,
+                'amount_usd' => $amountUsd,
+                'amount_ves' => $amountVes,
+                'bcv_rate'   => getBcvUsdRate($db)['rate'] ?? null,
             ], JSON_UNESCAPED_UNICODE),
             'verified_at'      => date('Y-m-d H:i:s'),
         ]);
