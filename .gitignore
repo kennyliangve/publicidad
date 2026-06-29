@@ -5,6 +5,7 @@ frontend/node_modules/
 # 前端开发缓存
 frontend/.vite/
 frontend/dist/
+dist/
 
 # 环境变量
 .env
