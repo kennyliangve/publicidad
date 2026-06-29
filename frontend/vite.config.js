@@ -6,6 +6,9 @@ export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const proxyTarget = env.VITE_API_PROXY_TARGET || 'https://www.vecino.com.ve'
   const basePath = env.VITE_BASE_PATH ?? (mode === 'cloudflare' ? '/' : '/publicidad/')
+  // Cloudflare / Worker：/api 直连；phpstudy 本地：/publicidad/api/index.php
+  const proxyStyle = env.VITE_API_PROXY_STYLE
+    || (/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/i.test(proxyTarget) ? 'index-php' : 'worker')
 
   return {
     plugins: [vue()],
@@ -23,8 +26,12 @@ export default defineConfig(({ command, mode }) => {
           target: proxyTarget,
           changeOrigin: true,
           secure: true,
-          rewrite: (path) =>
-            '/publicidad/api/index.php' + path.replace(/^\/api/, ''),
+          ...(proxyStyle === 'index-php'
+            ? {
+                rewrite: (path) =>
+                  '/publicidad/api/index.php' + path.replace(/^\/api/, ''),
+              }
+            : {}),
         },
         // 开发预览：/img/xxx.jpg → 线上 /publicidad/uploads/xxx.jpg（避免广告拦截 uploads/publicidad）
         '/img': {

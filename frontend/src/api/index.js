@@ -9,11 +9,17 @@ async function request(url, options = {}) {
   }
 
   const res = await fetch(`${API_BASE}${url}`, { ...options, headers })
+  const text = await res.text()
   let data
   try {
-    data = await res.json()
+    data = JSON.parse(text)
   } catch {
-    throw new Error(`请求失败 (${res.status})`)
+    const isHtml = text.trimStart().startsWith('<!')
+    throw new Error(
+      isHtml
+        ? `API 返回了 HTML 而非 JSON（${res.status}），请检查 VITE_API_PROXY_TARGET / VITE_API_PROXY_STYLE`
+        : `请求失败 (${res.status})`
+    )
   }
 
   if (data.code !== 0) {
