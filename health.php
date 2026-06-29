@@ -1,7 +1,5 @@
 <?php
 /**
- * 健康检查入口（独立访问，无需路由）
- * 访问: /publicidad/health.php 或 /publicidad/api/health
+ * 兼容入口：转发到 api/index.php（健康检查走 API）
  */
-require_once __DIR__ . '/api/routes/health.php';
-handleHealth();
+require __DIR__ . '/api/index.php';

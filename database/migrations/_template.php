@@ -2,8 +2,11 @@
 /**
  * 迁移模板 - 复制此文件并重命名后修改
  *
- * 命名规则: 003_描述.php （数字递增，不可重复）
- * 上传后系统会自动检测并执行
+ * 命名规则: 006_描述.php （数字递增，不可重复）
+ *
+ * 上传 migration 文件到 database/migrations/ 后：
+ * - 下次 API 请求或访问网站时会自动执行（auto_migrate=true）
+ * - 也可访问 api/install.php 或 GET /api/health 触发
  */
 return [
     'version'     => '003',

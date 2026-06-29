@@ -90,9 +90,28 @@ function assertUserActive(array $user): void
     }
 }
 
+/** 是否已执行用户扩展字段迁移（004） */
+function usersHasLoginColumns(PDO $db): bool
+{
+    static $has = null;
+    if ($has !== null) {
+        return $has;
+    }
+    try {
+        $stmt = $db->query("SHOW COLUMNS FROM users LIKE 'last_login_at'");
+        $has = (bool)$stmt->fetch();
+    } catch (Throwable) {
+        $has = false;
+    }
+    return $has;
+}
+
 /** 记录登录信息 */
 function recordUserLogin(PDO $db, int $userId): void
 {
+    if (!usersHasLoginColumns($db)) {
+        return;
+    }
     $ip = getClientIp();
     $stmt = $db->prepare(
         'UPDATE users SET last_login_at = NOW(), last_login_ip = ?, login_count = login_count + 1 WHERE id = ?'

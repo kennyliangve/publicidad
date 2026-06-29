@@ -9,7 +9,7 @@ export default defineConfig(({ command, mode }) => {
 
   return {
     plugins: [vue()],
-    base: command === 'serve' ? '/' : basePath,
+    base: basePath,
     resolve: {
       alias: {
         '@': resolve(__dirname, 'src'),

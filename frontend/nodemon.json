@@ -1,0 +1,12 @@
+{
+  "watch": [
+    "vite.config.js",
+    ".env",
+    ".env.development",
+    ".env.cloudflare"
+  ],
+  "ext": "js,env",
+  "exec": "vite",
+  "delay": 800,
+  "signal": "SIGTERM"
+}

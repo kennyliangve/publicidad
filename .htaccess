@@ -1,4 +1,4 @@
-DirectoryIndex index.php index.html
+DirectoryIndex api/index.php index.php index.html
 
 RewriteEngine On
 RewriteBase /publicidad/
@@ -12,8 +12,11 @@ RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
-# API
+# API 请求
 RewriteRule ^api(/.*)?$ api/index.php [QSA,L]
 
-# 其余请求交给 index.php（SPA + 静态资源）
-RewriteRule ^ index.php [QSA,L]
+# 兼容旧路径：根目录 install.php → api/install.php
+RewriteRule ^install\.php$ api/install.php [R=301,L,QSA]
+
+# 其余请求交给 api/index.php（SPA + 静态资源）
+RewriteRule ^ api/index.php [QSA,L]

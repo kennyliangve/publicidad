@@ -19,8 +19,8 @@ $config = [
     'jwt_secret'  => 'publicidad_secret_key_change_in_production',
     'upload_path' => __DIR__ . '/../uploads/',
     'cors_origin' => '*',
-    'auto_migrate'  => true,                          // API 请求时自动执行待运行迁移
-    'migrate_secret' => 'pub_migrate_2026',           // 手动触发迁移的密钥
+    'auto_migrate'  => true,   // 连接数据库时自动执行 api/migrations/ 中的新迁移
+    'migrate_secret' => 'pub_migrate_2026',  // POST /api/migrate?key=xxx 手动触发
 ];
 
 // 自动检测部署路径（当 base_path 为空时）

@@ -61,12 +61,21 @@ function handleHealth(): void
         require_once __DIR__ . '/../Migrator.php';
         $migrator = new Migrator($db);
         $migrationStatus = $migrator->getStatus();
-        if ($migrationStatus['pending_count'] > 0) {
+        if ((int)($migrationStatus['migration_files'] ?? 0) === 0) {
             $healthy = false;
             $checks['migrations'] = [
-                'status'  => 'warning',
-                'message' => '有 ' . $migrationStatus['pending_count'] . ' 个待执行迁移',
-                'pending' => $migrationStatus['pending'],
+                'status'  => 'error',
+                'message' => '未找到迁移文件，请上传 api/migrations/ 目录',
+                'path'    => $migrationStatus['migrations_path'],
+            ];
+        } elseif ($migrationStatus['pending_count'] > 0 || !empty($migrationStatus['schema_issues'])) {
+            $healthy = false;
+            $checks['migrations'] = [
+                'status'         => 'warning',
+                'message'        => '数据库需要升级',
+                'pending'        => $migrationStatus['pending'],
+                'schema_issues'  => $migrationStatus['schema_issues'],
+                'install_url'    => rtrim($config['base_path'] ?? '', '/') . '/api/install.php',
             ];
         } else {
             $checks['migrations'] = [

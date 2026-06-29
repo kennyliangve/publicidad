@@ -21,6 +21,12 @@ class Database
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES   => false,
             ]);
+
+            // 首次连接数据库时自动执行待运行迁移
+            if (!empty($config['auto_migrate'])) {
+                require_once __DIR__ . '/Migrator.php';
+                autoMigrate(self::$instance);
+            }
         }
         return self::$instance;
     }

@@ -30,6 +30,7 @@
         </button>
         <h1 class="page-title">{{ currentTitle }}</h1>
         <div class="topbar-user">{{ userStore.user?.username }}</div>
+        <button type="button" class="logout-btn" @click="logout">退出</button>
       </header>
       <div class="admin-content">
         <router-view />
@@ -42,13 +43,19 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import AppIcon from '@/components/AppIcon.vue'
 
 const route = useRoute()
+const router = useRouter()
 const userStore = useUserStore()
 const sidebarOpen = ref(false)
+
+function logout() {
+  userStore.logout()
+  router.push({ name: 'AdminLogin' })
+}
 
 const navItems = [
   { path: '/admin/dashboard', label: '仪表盘', icon: 'home' },
@@ -159,6 +166,20 @@ const currentTitle = computed(() => titleMap[route.path] || '管理后台')
 .topbar-user {
   font-size: 14px;
   color: var(--text-muted);
+}
+
+.logout-btn {
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  transition: background 0.15s, color 0.15s;
+}
+
+.logout-btn:hover {
+  background: #f5f5f5;
+  color: var(--black);
 }
 
 .admin-content {

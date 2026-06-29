@@ -25,6 +25,7 @@ function handleMigrate(string $method): void
         $db = Database::getConnection();
         $migrator = new Migrator($db);
         $results = $migrator->runPending();
+        clearMigrateCache();
 
         jsonSuccess([
             'applied' => $results,

@@ -1,74 +1,70 @@
 <?php
+/**
+ * 网站统一入口（SPA 前端 + REST API）
+ * 访问: /publicidad/ 或 /publicidad/api/index.php/...
+ */
+$root = dirname(__DIR__);
+$uri  = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?? '';
+$uri  = rtrim($uri, '/') ?: '/';
 
-require_once __DIR__ . '/db.php';
-require_once __DIR__ . '/Migrator.php';
-require_once __DIR__ . '/bootstrap.php';
-require_once __DIR__ . '/helpers.php';
-
-corsHeaders();
-
-// 自动执行数据库迁移
-autoMigrate();
-
-$segments = parseApiUri() ? explode('/', parseApiUri()) : [];
-
-$method = $_SERVER['REQUEST_METHOD'];
-$resource = $segments[0] ?? '';
-$id = $segments[1] ?? null;
-$action = $segments[2] ?? null;
-
-// 特殊路由: posts/my
-if ($resource === 'posts' && ($segments[1] ?? '') === 'my') {
-    $id = null;
-    $action = 'my';
+// REST API → api/router.php
+if (preg_match('#/api(/|$)#', $uri) && !preg_match('#/api/install\.php$#', $uri)) {
+    require __DIR__ . '/router.php';
+    exit;
 }
 
-try {
-    switch ($resource) {
-        case 'categories':
-            require __DIR__ . '/routes/categories.php';
-            handleCategories($method, $id);
-            break;
+// 健康检查（兼容旧路径 /health.php）
+if (preg_match('#/health(\.php)?$#', $uri)) {
+    require_once __DIR__ . '/routes/health.php';
+    handleHealth();
+    exit;
+}
 
-        case 'auth':
-            require __DIR__ . '/routes/auth.php';
-            handleAuth($method, $id);
-            break;
-
-        case 'posts':
-            require __DIR__ . '/routes/posts.php';
-            handlePosts($method, $id, $action);
-            break;
-
-        case 'upload':
-            require __DIR__ . '/routes/upload.php';
-            handleUpload($method);
-            break;
-
-        case 'health':
-            require __DIR__ . '/routes/health.php';
-            handleHealth();
-            break;
-
-        case 'migrate':
-            require __DIR__ . '/routes/migrate.php';
-            handleMigrate($method);
-            break;
-
-        case 'admin':
-            require __DIR__ . '/routes/admin.php';
-            handleAdmin($method, $id, $action);
-            break;
-
-        case '':
-            jsonSuccess(['name' => '信息分类网 API', 'version' => '1.0']);
-            break;
-
-        default:
-            jsonError('Not found', 404);
+// 静态资源 /assets/*
+if (preg_match('#/assets/(.+)$#', $uri, $m)) {
+    $file = $root . '/dist/assets/' . basename($m[1]);
+    if (is_file($file)) {
+        $types = [
+            'js'    => 'application/javascript',
+            'css'   => 'text/css',
+            'png'   => 'image/png',
+            'jpg'   => 'image/jpeg',
+            'svg'   => 'image/svg+xml',
+            'woff2' => 'font/woff2',
+        ];
+        $ext = pathinfo($file, PATHINFO_EXTENSION);
+        header('Content-Type: ' . ($types[$ext] ?? 'application/octet-stream'));
+        header('Cache-Control: public, max-age=31536000');
+        readfile($file);
+        exit;
     }
-} catch (PDOException $e) {
-    jsonError('数据库错误: ' . $e->getMessage(), 500);
-} catch (Exception $e) {
-    jsonError($e->getMessage(), 500);
 }
+
+// uploads 目录
+if (preg_match('#/uploads/(.+)$#', $uri, $m)) {
+    $file = $root . '/uploads/' . basename($m[1]);
+    if (is_file($file)) {
+        $ext = pathinfo($file, PATHINFO_EXTENSION);
+        $types = ['jpg' => 'image/jpeg', 'png' => 'image/png', 'gif' => 'image/gif', 'webp' => 'image/webp'];
+        header('Content-Type: ' . ($types[$ext] ?? 'application/octet-stream'));
+        readfile($file);
+        exit;
+    }
+}
+
+// SPA 前端（触发数据库自动迁移）
+require_once __DIR__ . '/db.php';
+Database::getConnection();
+
+$indexHtml = $root . '/dist/index.html';
+if (is_file($indexHtml)) {
+    header('Content-Type: text/html; charset=utf-8');
+    readfile($indexHtml);
+    exit;
+}
+
+$config = require __DIR__ . '/config.php';
+$base = rtrim($config['base_path'] ?? '/publicidad', '/');
+http_response_code(404);
+header('Content-Type: text/html; charset=utf-8');
+echo '<!DOCTYPE html><html><body><h1>404 Not Found</h1><p>请确认 dist/ 目录已上传，或访问 <a href="' . htmlspecialchars($base) . '/api/install.php">api/install.php</a> 检查环境。</p></body></html>';

@@ -106,7 +106,7 @@
       </div>
 
       <div class="user-menu card">
-        <router-link v-if="profile?.role === 1" to="/admin" class="menu-item admin-entry">
+        <router-link v-if="profile?.role === 1" to="/admin/dashboard" class="menu-item admin-entry">
           <span class="menu-label">
             <AppIcon name="wrench" :size="18" />
             管理后台
