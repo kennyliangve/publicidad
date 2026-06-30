@@ -2,11 +2,6 @@ name = "publicidad"
 main = "worker.js"
 compatibility_date = "2024-06-01"
 
-# Git 集成仅执行 wrangler deploy 时，会先跑此命令生成 dist/
-# 注意：勿在 dist 放 _redirects，会与 SPA 回退冲突导致部署失败
-[build]
-command = "npm ci && npm run build"
-
 [assets]
 directory = "./dist"
 binding = "ASSETS"
