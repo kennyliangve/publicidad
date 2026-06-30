@@ -1,18 +1,18 @@
-/**
- * Cloudflare Pages Function：将 /api/* 代理到 PHP 后端
- * 环境变量 API_ORIGIN 示例：https://www.vecino.com.ve/publicidad/api/index.php
- */
+export async function onRequestOptions() {
+  return new Response(null, {
+    status: 204,
+    headers: corsHeaders(),
+  })
+}
+
 export async function onRequest(context) {
   const { request, env } = context
-  const apiOrigin = env.API_ORIGIN || 'https://www.vecino.com.ve/publicidad/api/index.php'
 
   if (request.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: corsHeaders(),
-    })
+    return onRequestOptions()
   }
 
+  const apiOrigin = env.API_ORIGIN || 'https://www.vecino.com.ve/publicidad/api/index.php'
   const url = new URL(request.url)
   const subPath = url.pathname.replace(/^\/api\/?/, '')
   const target = `${apiOrigin.replace(/\/$/, '')}/${subPath}${url.search}`

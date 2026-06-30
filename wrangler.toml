@@ -2,6 +2,10 @@ name = "publicidad"
 main = "worker.js"
 compatibility_date = "2024-06-01"
 
+# Git 集成仅执行 wrangler deploy 时，会先跑此命令生成 dist/
+[build]
+command = "npm ci && npm run build"
+
 [assets]
 directory = "./dist"
 binding = "ASSETS"

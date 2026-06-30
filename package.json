@@ -6,8 +6,10 @@
   },
   "scripts": {
     "build": "npm ci --prefix frontend && npm run build:cloudflare --prefix frontend",
-    "deploy": "npm run build && wrangler deploy",
-    "pages:deploy": "wrangler pages deploy dist --project-name=publicidad"
+    "deploy": "npm ci && npm run build && wrangler deploy",
+    "cf:build": "npm ci && npm run build",
+    "cf:deploy": "wrangler deploy --no-build",
+    "pages:deploy": "npm run cf:build && wrangler pages deploy dist --project-name=publicidad"
   },
   "devDependencies": {
     "wrangler": "^4.105.0"
